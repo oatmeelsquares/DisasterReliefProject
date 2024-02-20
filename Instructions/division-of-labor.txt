@@ -1,4 +1,5 @@
-Preprocessing
+## Preprocessing ##############################
+
 ☐	import libraries and set seed
 ☐	Load data (3.3)
 ☐	Remove columns/nas, constants (3.3)
@@ -6,59 +7,9 @@ Preprocessing
 	☐	correlation matrix
 ☐	data visualizations 
 
-Logistic regression model
-☐	describe and show parameter tuning (3.4)
-	☐	discuss results (3.4)
-☐	describe and justify model validation (3.4)
-☐	describe and show results of threshold selection (3.5)
-	☐	describe and justify threshold selection (3.4)
-☐	Results: selected threshold (3.6)
-☐	describe and discuss model performance (3.5)
-☐	describe and justify metrics used for performance evaluation (3.4)
-☐	ROC + AUC (3.6)
-☐	Optimal model tuning parameters (3.6)
-☐	Accuracy, TPR, FPR, and precision calculated at chosen threshold (3.6)
 
-LDA model
-☐	describe and show parameter tuning (3.4)
-	☐	discuss results (3.4)
-☐	describe and justify model validation (3.4)
-☐	describe and show results of threshold selection (3.5)
-	☐	describe and justify threshold selection (3.4)
-☐	Results: selected threshold (3.6)
-☐	describe and discuss model performance (3.5)
-☐	describe and justify metrics used for performance evaluation (3.4)
-☐	ROC + AUC (3.6)
-☐	Optimal model tuning parameters (3.6)
-☐	Accuracy, TPR, FPR, and precision calculated at chosen threshold (3.6)
 
-QDA model
-☐	describe and show parameter tuning (3.4)
-	☐	discuss results (3.4)
-☐	describe and justify model validation (3.4)
-☐	describe and show results of threshold selection (3.5)
-	☐	describe and justify threshold selection (3.4)
-☐	Results: selected threshold (3.6)
-☐	describe and discuss model performance (3.5)
-☐	describe and justify metrics used for performance evaluation (3.4)
-☐	ROC + AUC (3.6)
-☐	Optimal model tuning parameters (3.6)
-☐	Accuracy, TPR, FPR, and precision calculated at chosen threshold (3.6)
-
-KNN model
-☐	describe and show parameter tuning (3.4)
-	☐	discuss results (3.4)
-☐	describe and justify model validation (3.4)
-☐	describe and show results of threshold selection (3.5)
-	☐	describe and justify threshold selection (3.4)
-☐	Results: selected threshold (3.6)
-☐	describe and discuss model performance (3.5)
-☐	describe and justify metrics used for performance evaluation (3.4)
-☐	ROC + AUC (3.6)
-☐	Optimal model tuning parameters (3.6)
-☐	Accuracy, TPR, FPR, and precision calculated at chosen threshold (3.6)
-
-Penalized logistic regression model
+## Logistic regression model ########################
 ☐	describe and show parameter tuning (3.4)
 	☐	discuss results (3.4)
 ☐	describe and justify model validation (3.4)
@@ -72,7 +23,63 @@ Penalized logistic regression model
 ☐	Accuracy, TPR, FPR, and precision calculated at chosen threshold (3.6)
 
 
-Conclusions
+## LDA model #############################################
+☐	describe and show parameter tuning (3.4)
+	☐	discuss results (3.4)
+☐	describe and justify model validation (3.4)
+☐	describe and show results of threshold selection (3.5)
+	☐	describe and justify threshold selection (3.4)
+☐	Results: selected threshold (3.6)
+☐	describe and discuss model performance (3.5)
+☐	describe and justify metrics used for performance evaluation (3.4)
+☐	ROC + AUC (3.6)
+☐	Optimal model tuning parameters (3.6)
+☐	Accuracy, TPR, FPR, and precision calculated at chosen threshold (3.6)
+
+
+## QDA model ###################################################
+☐	describe and show parameter tuning (3.4)
+	☐	discuss results (3.4)
+☐	describe and justify model validation (3.4)
+☐	describe and show results of threshold selection (3.5)
+	☐	describe and justify threshold selection (3.4)
+☐	Results: selected threshold (3.6)
+☐	describe and discuss model performance (3.5)
+☐	describe and justify metrics used for performance evaluation (3.4)
+☐	ROC + AUC (3.6)
+☐	Optimal model tuning parameters (3.6)
+☐	Accuracy, TPR, FPR, and precision calculated at chosen threshold (3.6)
+
+
+## KNN model #########################################
+☐	describe and show parameter tuning (3.4)
+	☐	discuss results (3.4)
+☐	describe and justify model validation (3.4)
+☐	describe and show results of threshold selection (3.5)
+	☐	describe and justify threshold selection (3.4)
+☐	Results: selected threshold (3.6)
+☐	describe and discuss model performance (3.5)
+☐	describe and justify metrics used for performance evaluation (3.4)
+☐	ROC + AUC (3.6)
+☐	Optimal model tuning parameters (3.6)
+☐	Accuracy, TPR, FPR, and precision calculated at chosen threshold (3.6)
+
+
+## Penalized logistic regression model ##################
+☐	describe and show parameter tuning (3.4)
+	☐	discuss results (3.4)
+☐	describe and justify model validation (3.4)
+☐	describe and show results of threshold selection (3.5)
+	☐	describe and justify threshold selection (3.4)
+☐	Results: selected threshold (3.6)
+☐	describe and discuss model performance (3.5)
+☐	describe and justify metrics used for performance evaluation (3.4)
+☐	ROC + AUC (3.6)
+☐	Optimal model tuning parameters (3.6)
+☐	Accuracy, TPR, FPR, and precision calculated at chosen threshold (3.6)
+
+
+## Conclusions ########################################
 ☐	Conclusion 1: determination and justification of what algorithm works best (3.7)
 ☐	Conclusion 2: (3.7)
 	☐	decide what conclusion to draw (what interests us?)
