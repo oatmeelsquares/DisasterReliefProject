@@ -1,0 +1,89 @@
+```{r hide-code, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE)
+```
+
+```{r load-packages}
+#| message: FALSE
+library(tidyverse)
+library(tidymodels)
+library(ggcorrplot)
+library(GGally)
+library(patchwork)
+```
+
+```{r load_data}
+
+data <- read_csv("https://gedeck.github.io/DS-6030/project/HaitiPixels.csv")
+data %>% glimpse()
+data %>% summary()
+```
+```{r transform-data}
+
+data <- data %>% 
+  mutate(Class = as.factor(Class))
+
+```
+
+```{r EDA_Boxplots}
+#| fig.width: 8
+#| fig.height: 8
+#| fig.align: center
+#| out.width: 75%
+g1_box <- ggplot(data, aes(x=Class, y=Red))+
+  geom_boxplot()+
+  labs(title= "Boxplots of Red Pixel Value by Class")
+
+g2_box <- ggplot(data, aes(x=Class, y=Green))+
+  geom_boxplot()+
+  labs(title= "Boxplots of Green Pixel Value by Class")
+
+g3_box <- ggplot(data, aes(x=Class, y=Blue))+
+  geom_boxplot()+
+  labs(title= "Boxplots of Blue Pixel Value by Class")
+
+g1_box/g2_box/g3_box
+
+```
+
+```{r EDA_Countplot_Class}
+
+ggplot(data, aes(Class))+
+  geom_bar()+
+  labs(title= "Count Plot of Class", x="Count")
+
+```
+```{r EDA_Density}
+#| fig.width: 8
+#| fig.height: 8
+#| fig.align: center
+#| out.width: 75%
+g1_dense <- ggplot(data, aes(Red))+
+  geom_density()+
+  labs(title="Density Plot of Red")
+
+g2_dense <- ggplot(data, aes(Green))+
+  geom_density()+
+  labs(title="Density Plot of Green")
+
+g3_dense <- ggplot(data, aes(Blue))+
+  geom_density()+
+  labs(title="Density Plot of Blue")
+
+g1_dense/g2_dense/g3_dense
+```
+
+
+```{r EDA_Corrplot}
+#| fig.width: 6
+#| fig.height: 6
+#| fig.align: center
+#| out.width: 75%
+data %>% 
+  ggpairs(aes(alpha=0.1), progress= FALSE)
+
+```
+
+
+
+
+
