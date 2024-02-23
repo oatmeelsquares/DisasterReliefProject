@@ -1,0 +1,28 @@
+Outline Disaster Relief project
+
+
+
+## 1.1 Introduction
+
+The aim of the experiment is to build a model that can accurately identify blue tarps from pictures. The purpose is to help displaced people in Haiti who are known to be sheltering under blue tarps. Aircraft have flown over Haiti and taken pictures of the land, but there's no way humans could parse through all of the pictures quickly enough to get help to all the people in need.
+
+
+## 1.2 Background and methods
+
+We will investigate five types of models: logistic regression, linear determinant analysis (LDA), quadratic determinant analysis (QDA), k-nearest neighbors (KNN), and penalized logistic regression. For each model, we will thoroughly explain parameter tuning, model validation, threshold selection, and metrics used for performance evaluaiton. Sensitivity will be espeically important, because we want to make sure we get all the blue tarps, even if it means we have some false positives. 
+
+We will use 10-fold cross validation to validate and compare the models to help us choose the best-performing one, because it is more robust than a simple train-holdout split yet not so computationally intensive as leave-one-out cross validation (LOOCV). We choose 10-fold cross-validation instead of the bootstrapping method because it is more useful for comparing multiple models efficiently vs looking at a single sample statistic at a time. We may use bootstrapping to validate our chosen model after using cross-validation to compare them.
+
+## 1.3 Results
+
+The results will be the metrics of each model, including accuracy, specificity, sensitivity, precision, j-index, AUC, and possibly others. In this section, we will thoroughly explore and explain parameter tuning (e.g. k for the KNN model), including threshold selection, using visualizations such as tables and plots. We will use this section to discuss the performance of each model individually, including explorint ROC and UC for each model. 
+
+## 1.4 Discussion
+
+In this section, we will take the exploration from the results section and put it all together to compare the models. We will address why sensitivity is a more important metric than perhaps accuracy or mone other metric. We will discuss the implications of the results, including which ones may be overfitted and which one may be better suited for our purpose, and why by addressing the bias-variance trade-off.
+
+## 1.5 Conclusion
+
+We will state our conclusion about which algorithm works best, including a thorough justification based on the needs of the problem.
+
+We will state two more conclusions related to the implications of our results and possible next steps or what could be done to improve results. We have not yet decided on our other two conclusions, and will need to work with the data to see what catches our interest.
