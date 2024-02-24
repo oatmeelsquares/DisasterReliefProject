@@ -1,30 +1,223 @@
----
-title: "Disaster relief project code"
-author: "Rachel Daniel"
-date: "2024-02-20"
-output: html_document
----
+Rachel Code
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+
+```{r hide-code, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE)
 ```
 
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r load-packages}
+#| message: FALSE
+library(tidyverse)
+library(tidymodels)
+library(ggcorrplot)
+library(GGally)
+library(patchwork)
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r load_data}
+
+data <- read_csv("https://gedeck.github.io/DS-6030/project/HaitiPixels.csv")
+data %>% glimpse()
+data %>% summary()
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r transform-data}
+data <- data %>% 
+  mutate(Class = as.factor(Class))
+
+```
+
+
+```{r check for missing values}
+sum(is.na(data))
+```
+
+- Don't need to remove/check for duplicates as duplicates may include the blue tarps that we are looking for
+
+
+```{r Check corr}
+corr <- data%>%
+select(where(is.numeric)) %>%
+cor()
+ggcorrplot(corr)
+```
+
+- pixel colors highly correlated, most likely because each one will be correlated to the ones next to it
+
+
+```{r EDA_Boxplots}
+#| fig.width: 8
+#| fig.height: 8
+#| fig.align: center
+#| out.width: 75%
+g1_box <- ggplot(data, aes(x=Class, y=Red))+
+  geom_boxplot()+
+  labs(title= "Boxplots of Red Pixel Value by Class")
+
+g2_box <- ggplot(data, aes(x=Class, y=Green))+
+  geom_boxplot()+
+  labs(title= "Boxplots of Green Pixel Value by Class")
+
+g3_box <- ggplot(data, aes(x=Class, y=Blue))+
+  geom_boxplot()+
+  labs(title= "Boxplots of Blue Pixel Value by Class")
+
+g1_box/g2_box/g3_box
+
+```
+
+```{r EDA_Countplot_Class}
+
+ggplot(data, aes(Class))+
+  geom_bar()+
+  labs(title= "Count Plot of Class", x="Count")
+
+```
+
+```{r EDA_Density}
+#| fig.width: 8
+#| fig.height: 8
+#| fig.align: center
+#| out.width: 75%
+g1_dense <- ggplot(data, aes(Red))+
+  geom_density()+
+  labs(title="Density Plot of Red")
+
+g2_dense <- ggplot(data, aes(Green))+
+  geom_density()+
+  labs(title="Density Plot of Green")
+
+g3_dense <- ggplot(data, aes(Blue))+
+  geom_density()+
+  labs(title="Density Plot of Blue")
+
+g1_dense/g2_dense/g3_dense
+```
+
+
+
+```{r EDA_Corrplot}
+#| fig.width: 6
+#| fig.height: 6
+#| fig.align: center
+#| out.width: 75%
+data %>% 
+  ggpairs(aes(alpha=0.1), progress= FALSE)
+```
+
+
+
+
+
+- Boxplots of each class and their color pixel values - might give us more information about what the different classes will look like
+
+```{r}
+
+#| fig.width: 8
+#| fig.height: 8
+#| fig.align: center
+#| out.width: 75%
+
+veg <- filter(data, Class == "Vegetation") 
+
+g1_vegbar <- ggplot(veg, aes(x = Red))+
+  geom_bar()+
+  labs(title= "Range of Red Pixels in Vegetation", y="Count", x = "Red Intensity")
+
+g2_vegbar <- ggplot(veg, aes(x = Green))+
+  geom_bar()+
+  labs(title= "Range of Green Pixels in Vegetation", y="Count", x = "Green Intensity")
+
+g3_vegbar <- ggplot(veg, aes(x = Blue))+
+  geom_bar()+
+  labs(title= "Range of Blue Pixels in Vegetation", y="Count", x = "Blue Intensity")
+
+g1_vegbar/g2_vegbar/g3_vegbar
+```
+
+
+
+```{r}
+soil <- filter(data, Class == "Soil") 
+
+g1_bar <- ggplot(soil, aes(x = Red))+
+  geom_bar()+
+  labs(title= "Range of Red Pixels in Soil", y="Count", x = "Red Intensity")
+
+g2_bar <- ggplot(soil, aes(x = Green))+
+  geom_bar()+
+  labs(title= "Range of Green Pixels in Soil", y="Count", x = "Green Intensity")
+
+g3_bar <- ggplot(soil, aes(x = Blue))+
+  geom_bar()+
+  labs(title= "Range of Blue Pixels in Soil", y="Count", x = "Blue Intensity")
+
+g1_bar/g2_bar/g3_bar
+```
+
+
+
+
+
+```{r}
+rooftop <- filter(data, Class == "Rooftop") 
+
+g1_bar <- ggplot(rooftop, aes(x = Red))+
+  geom_bar()+
+  labs(title= "Range of Red Pixels on Rooftop", y="Count", x = "Red Intensity")
+
+g2_bar <- ggplot(rooftop, aes(x = Green))+
+  geom_bar()+
+  labs(title= "Range of Green Pixels on Rooftop", y="Count", x = "Green Intensity")
+
+g3_bar <- ggplot(rooftop, aes(x = Blue))+
+  geom_bar()+
+  labs(title= "Range of Blue Pixels on Rooftop", y="Count", x = "Blue Intensity")
+
+g1_bar/g2_bar/g3_bar
+```
+
+
+```{r}
+bluetarp <- filter(data, Class == "Blue Tarp") 
+
+g1_bar <- ggplot(bluetarp, aes(x = Red))+
+  geom_bar()+
+  labs(title= "Range of Red Pixels on Blue Tarp", y="Count", x = "Red Intensity")
+
+g2_bar <- ggplot(bluetarp, aes(x = Green))+
+  geom_bar()+
+  labs(title= "Range of Green Pixels on Blue Tarp", y="Count", x = "Green Intensity")
+
+g3_bar <- ggplot(bluetarp
+                 , aes(x = Blue))+
+  geom_bar()+
+  labs(title= "Range of Blue Pixels on Blue Tarp", y="Count", x = "Blue Intensity")
+
+g1_bar/g2_bar/g3_bar 
+```
+
+
+
+```{r}
+various <- filter(data, Class == "Various Non-Tarp") 
+
+g1_bar <- ggplot(various, aes(x = Red))+
+  geom_bar()+
+  labs(title= "Range of Red Pixels on Various Non-Tarp", y="Count", x = "Red Intensity")
+
+g2_bar <- ggplot(bluetarp, aes(x = Green))+
+  geom_bar()+
+  labs(title= "Range of Green Pixels on Various Non-Tarp", y="Count", x = "Green Intensity")
+
+g3_bar <- ggplot(bluetarp
+                 , aes(x = Blue))+
+  geom_bar()+
+  labs(title= "Range of Blue Pixels on Various Non-Tarp", y="Count", x = "Blue Intensity")
+
+g1_bar/g2_bar/g3_bar 
+```
