@@ -1,4 +1,4 @@
-## Preprocessing ##############################
+## Preprocessing - Abner/Rachel ##############################
 
 ☐	import libraries and set seed
 ☐	Load data (3.3)
@@ -9,7 +9,7 @@
 
 
 
-## Logistic regression model ########################
+## Logistic regression model - Abner ########################
 ☐	describe and show parameter tuning (3.4)
 	☐	discuss results (3.4)
 ☐	describe and justify model validation (3.4)
@@ -23,7 +23,7 @@
 ☐	Accuracy, TPR, FPR, and precision calculated at chosen threshold (3.6)
 
 
-## LDA model #############################################
+## LDA model - Rachel #############################################
 ☐	describe and show parameter tuning (3.4)
 	☐	discuss results (3.4)
 ☐	describe and justify model validation (3.4)
@@ -37,7 +37,7 @@
 ☐	Accuracy, TPR, FPR, and precision calculated at chosen threshold (3.6)
 
 
-## QDA model ###################################################
+## QDA model - Rachel ###################################################
 ☐	describe and show parameter tuning (3.4)
 	☐	discuss results (3.4)
 ☐	describe and justify model validation (3.4)
@@ -51,7 +51,7 @@
 ☐	Accuracy, TPR, FPR, and precision calculated at chosen threshold (3.6)
 
 
-## KNN model #########################################
+## KNN model - Becky #########################################
 ☐	describe and show parameter tuning (3.4)
 	☐	discuss results (3.4)
 ☐	describe and justify model validation (3.4)
@@ -65,7 +65,7 @@
 ☐	Accuracy, TPR, FPR, and precision calculated at chosen threshold (3.6)
 
 
-## Penalized logistic regression model ##################
+## Penalized logistic regression model - Abner ##################
 ☐	describe and show parameter tuning (3.4)
 	☐	discuss results (3.4)
 ☐	describe and justify model validation (3.4)
