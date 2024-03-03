@@ -1,0 +1,307 @@
+```{r hide-code, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE)
+```
+
+
+```{r load-packages}
+#| message: FALSE
+library(tidyverse)
+library(tidymodels)
+library(ggcorrplot)
+library(GGally)
+library(patchwork)
+library(doParallel)
+```
+
+```{r load_data}
+
+data <- read_csv("https://gedeck.github.io/DS-6030/project/HaitiPixels.csv")
+data %>% glimpse()
+data %>% summary()
+```
+
+```{r transform-data}
+
+data <- data %>% 
+  mutate(
+    Class = as.factor(Class))
+
+```
+
+```{r EDA_Boxplots}
+#| fig.width: 8
+#| fig.height: 8
+#| fig.align: center
+#| out.width: 75%
+g1_box <- ggplot(data, aes(x=Class, y=Red))+
+  geom_boxplot()+
+  labs(title= "Boxplots of Red Pixel Value by Class")
+
+g2_box <- ggplot(data, aes(x=Class, y=Green))+
+  geom_boxplot()+
+  labs(title= "Boxplots of Green Pixel Value by Class")
+
+g3_box <- ggplot(data, aes(x=Class, y=Blue))+
+  geom_boxplot()+
+  labs(title= "Boxplots of Blue Pixel Value by Class")
+
+g1_box/g2_box/g3_box
+
+```
+
+```{r EDA_Countplot_Class}
+
+ggplot(data, aes(Class))+
+  geom_bar()+
+  labs(title= "Count Plot of Class", x="Count")
+
+```
+
+```{r EDA_Density}
+#| fig.width: 8
+#| fig.height: 8
+#| fig.align: center
+#| out.width: 75%
+g1_dense <- ggplot(data, aes(Red))+
+  geom_density()+
+  labs(title="Density Plot of Red")
+
+g2_dense <- ggplot(data, aes(Green))+
+  geom_density()+
+  labs(title="Density Plot of Green")
+
+g3_dense <- ggplot(data, aes(Blue))+
+  geom_density()+
+  labs(title="Density Plot of Blue")
+
+g1_dense/g2_dense/g3_dense
+```
+
+
+```{r EDA_Corrplot}
+#| fig.width: 6
+#| fig.height: 6
+#| fig.align: center
+#| out.width: 75%
+data %>% 
+  ggpairs(aes(alpha=0.1), progress= FALSE)
+
+```
+
+```{r}
+data <- data %>% 
+  mutate(
+    Class = factor(ifelse(Class== "Blue Tarp", "Tarp", "Other")))
+```
+
+
+## Logistic Regression Model
+
+```{r Parallel_processing}
+cl <- makePSOCKcluster(parallel::detectCores(logical = FALSE))
+registerDoParallel(cl)
+```
+
+```{r Split_Model}
+set.seed(1)
+
+data_split <- initial_split(data, prop=.8, strata=Class)
+train <- training(data_split)
+test <- testing(data_split)
+
+```
+
+```{r Create_Model}
+
+formula <- Class ~ Red + Green + Blue
+
+rec <- recipe(formula, data=train)
+
+logreg_spec <- logistic_reg(engine="glm", mode="classification")
+
+logreg_wf <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(logreg_spec)
+
+```
+
+```{r Create_multinomial_model}
+
+multireg_spec <- multinom_reg(engine = "glmnet" , mode="classification")
+
+multireg_wf <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(multireg_spec)
+```
+
+
+```{r Cross_Validation}
+
+resamples <- vfold_cv(train, v=10, strata=Class)
+metric_evals <- metric_set(roc_auc, accuracy)
+cv_control <- control_resamples(save_pred = TRUE)
+
+logreg_cv <- fit_resamples(logreg_wf, resamples, metrics=metric_evals, control=cv_control)
+```
+
+
+
+```{r Metrics}
+
+cv_metrics <- bind_rows(
+  collect_metrics(logreg_cv) %>% mutate(model="Logistic Regression")
+)
+
+ggplot(cv_metrics, aes(x=mean, y=model, xmin=mean-std_err, xmax=mean+std_err))+
+  geom_point()+
+  geom_linerange()+
+  facet_wrap(~ .metric)
+
+```
+```{r ROC_AUC_Curves}
+
+roc_cv_plot <- function(model_cv, model_name) {
+  cv_predictions <-collect_predictions(model_cv)
+  cv_ROC <- cv_predictions %>% roc_curve(truth=Class, .pred_Tarp, event_level="second")
+  autoplot(cv_ROC) +
+    labs(title=model_name)
+}
+g1 <- roc_cv_plot(logreg_cv, "Logistic regresson")
+g1
+
+```
+
+```{r fit_model_before_tuning}
+logreg_untuned_model <- logreg_wf %>% fit(train)
+```
+
+## Penalized Logistic Regression Model
+
+
+```{r Model_Tuning}
+
+tune_logreg_spec <- logistic_reg(engine="glmnet", mode="classification",
+                                 penalty = tune(), mixture= tune())
+
+tune_logreg_wf <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(tune_logreg_spec)
+
+logreg_params <- extract_parameter_set_dials(tune_logreg_wf) %>% 
+  update(
+    penalty=penalty(c(-3,.75)),
+    mixture=mixture(c(0,1))
+  )
+```
+
+```{r Cross_Validation_Tuned_Model}
+
+tune_results_logreg <- tune_grid(tune_logreg_wf,
+                                 resamples=resamples,
+                                 control=cv_control,
+                                 grid=grid_random(logreg_params, size=50))
+show_best(tune_results_logreg, metric="roc_auc", n=3)
+```
+
+```{r plot_grid_results}
+autoplot(tune_results_logreg)
+```
+
+```{r tuned_parameter_selection}
+
+best_params_logreg <- show_best(tune_results_logreg, metric="roc_auc")
+
+roc_cv_plot_tune <- function(cv_predictions, model_name){
+  cv_ROC <- cv_predictions %>% roc_curve(truth=Class, .pred_Tarp, event_level="second")
+  autoplot(cv_ROC) +
+    labs(title=model_name)
+}
+
+g1 <- roc_cv_plot(logreg_cv, "Logistic regression")
+g1_tuned <- collect_predictions(tune_results_logreg,
+                                parameters=best_params_logreg, summarize=TRUE) %>% 
+  roc_cv_plot_tune("Logistic Regression Tuned")
+g1/g1_tuned
+```
+
+```{r Finalize_the_models}
+
+tuned_logreg_model <- tune_logreg_wf %>% 
+  finalize_workflow(select_best(tune_results_logreg, metric="roc_auc")) %>% 
+  fit(train)
+
+cv_metrics <- bind_rows(
+  collect_metrics(logreg_cv) %>%
+    mutate(model="Logistic regression untuned"),
+  show_best(tune_results_logreg, metric="accuracy", 1) %>%
+    mutate(model="Logistic regression tuned"),
+  show_best(tune_results_logreg, metric="roc_auc", 1) %>%
+    mutate(model="Logistic regression tuned"),
+  
+)
+ggplot(cv_metrics, aes(x=mean, y=model, xmin=mean-std_err, xmax=mean+std_err))+
+  geom_point()+
+  geom_linerange()+
+  facet_wrap(~ .metric)
+```
+
+```{r Final_ROC_AUC}
+
+bind_rows(
+  roc_auc(augment(logreg_untuned_model, test), Class, .pred_Tarp, event_level="second") %>%
+    mutate(model="logreg untuned"),
+  roc_auc(augment(tuned_logreg_model, test), Class, .pred_Tarp, event_level="second") %>%
+    mutate(model="logreg tuned"),
+) %>%
+ggplot(aes(x=.estimate, y=model)) +
+  geom_point() +
+  facet_wrap(~ .metric)
+```
+
+```{r Stop_Parallel_Processing}
+stopCluster(cl)
+registerDoSEQ()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r Parameter_Tuning}
+
+```
+
+```{r Model_Validation}
+
+```
+
+```{r Threshold_Selection}
+
+```
+
+```{r Model_Performance_Evaluation}
+
+```
+
+```{r ROC_AUC_Curves}
+
+```
+
+```{r Optimal_Model_Tuning_Parameters}
+
+```
+
+```{r ACC_TPR_FPR_Precision_at_Threshold}
+
+```
