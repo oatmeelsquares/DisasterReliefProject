@@ -4,27 +4,73 @@ author: "Becky Desrosiers"
 date: "2024-02-20"
 output: html_document
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r load-packages}
+#| message: FALSE
+library(tidyverse)
+library(tidymodels)
+library(ggcorrplot)
+library(GGally)
+library(patchwork)
+library(doParallel)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r load-data}
+# load data from file
+# file = "https://gedeck.github.io/DS-6030/project/HaitiPixels.csv"
+file = '../data.csv'
+data <- read_csv(file)
+data %>% glimpse()
+data %>% summary()
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r transform-data}
+# clean up dataframe
+data <- data %>% 
+  mutate(Class = as.factor(Class))
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+This section will explore modeling the blue tarp classification with a K-nearest neighbors model. The number of neighbors will be considered for tuning. Dimension reduction will also be considered due to the high correlation between the features.
+
+```{r split-data}
+# split into testing and training set
+data_split <- initial_split(data)
+
+train <- training(data_split)
+test <- testing(data_split)
+
+# define CV resamples
+resamples <- vfold_cv(train)
+```
+
+
+```{r prep-wf}
+# define formula
+formula <- Class ~ Red + Green + Blue
+
+# define recipe
+knn_rec <- recipe(formula = formula, data = train) %>% 
+  step_pca(all_predictors(), num_comp = tune())
+
+# define model
+knn_model <- nearest_neighbor(mode = 'classification',
+                            engine = 'kknn',
+                            neighbors = tune())
+
+# define workflow
+knn_wf <- workflow() %>% 
+  add_recipe(knn_rec) %>% 
+  add_model(knn_model)
+
+# get tuning parameters
+parameters <- extract_parameter_set_dials(knn_wf)
+parameters
+```
+
+
+
+
+```{r recipe}
+
+```
+
