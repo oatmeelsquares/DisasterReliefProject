@@ -26,3 +26,33 @@ In this section, we will take the exploration from the results section and put i
 We will state our conclusion about which algorithm works best, including a thorough justification based on the needs of the problem.
 
 We will state two more conclusions related to the implications of our results and possible next steps or what could be done to improve results. We have not yet decided on our other two conclusions, and will need to work with the data to see what catches our interest.
+
+
+----------------------------------------------------------------------------------
+
+Comments from Prof. Gedeck:
+
+## Introduction:
+- What is the key idea for locating people and why do we expect it to work?
+
+## Background and methods:
+- You will need to do some EDA
+- EDA - focus your discussion of the results on what it means for the model
+- Be selective with your EDA. Focus on results that have a relevance to the project. You can always mention that you tried other visualizations, but didn’t get much more out of it. If you add a graph, it should add to your analysis and cover something that cannot already be seen in other graphs.
+- Model training consists of these steps:
+- Model validation using 10-fold cross validation; this includes model tuning if applicable
+- what metric will you use?
+- Threshold selection
+- what metric will you use?
+- Are “penalized logistic regression” and “logistic regression” really two different models or just variations of the same?
+
+## Results:
+- When you present metrics, talk about their relevance for the objective of this project
+- When you present your results, split it into results from model validation and results after threshold selection. e.g. ROC curves are only relevant for discussing model validation results and not threshold selection; reporting accuracy or any other threshold dependent metric prior to threshold selection is irrelevant.
+- If you visualize the same analysis for each model, combine them either in a single graph or a combination of graphs in one figure (using patchwork)
+
+## Discussion:
+- Focus your discussion also on differences between models.
+- For example LDA and QDA are conceptually similar but differ in the way they can represent the decision boundary. 
+- What do the differences in the results for LDA and QDA tell you?
+- Another example that you can discuss is the difference between , penalized logistic regression and logistic regression.
