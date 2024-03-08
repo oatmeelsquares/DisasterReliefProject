@@ -4,8 +4,10 @@ author: "Becky Desrosiers"
 date: "2024-02-20"
 output: html_document
 ---
+
+
+
 ```{r load-packages}
-#| message: FALSE
 library(tidyverse)
 library(tidymodels)
 library(ggcorrplot)
@@ -50,7 +52,7 @@ formula <- Class ~ Red + Green + Blue
 
 # define recipe
 knn_rec <- recipe(formula = formula, data = train) %>% 
-  step_pca(all_predictors(), num_comp = tune())
+  step_pca(all_numeric_predictors(), num_comp = tune())
 
 # define model
 knn_model <- nearest_neighbor(mode = 'classification',
