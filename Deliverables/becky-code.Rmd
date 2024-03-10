@@ -28,9 +28,6 @@ data %>% glimpse()
 data %>% summary()
 ```
 
-
-This section will explore modeling the blue tarp classification with a K-nearest neighbors model. The number of neighbors will be considered for tuning. Dimension reduction will also be considered due to the high correlation between the features.
-
 ```{r split-data}
 # split into testing and training set
 data_split <- initial_split(data, 0.8, strata = Class)
@@ -77,6 +74,13 @@ knn_tune <- tune_grid(knn_wf,
                       )
 ```
 
+## Section 3.5: K-Nearest Neighbors
+
+This section will explore modeling the blue tarp classification with a K-nearest neighbors model. The number of neighbors will be considered for tuning. Dimension reduction will also be considered due to the high correlation between the features. The reason why we choose to tune these parameters is that they are basically the only tunable parameters in a KNN model. Since the available tuning parameters are limited, we can reasonably explore both. We chose principal components instead of partial least squares because of James, et al. assertion that PLS has limited benefit in comparison with PCR or ridge regression.
+
+We use ROC AUC to find the best model because it it is a measure of the model overall, whereas accuracy only measures its performance at a specific chosen threshold. Accuracy will be reported later along with other relevant metrics after a threshold is chosen. We explore from 2 to 50 nearest neighbors and 1 to 3 principal components. Figure 3.X shows the behavior of the ROC AUC based on the number of neighbors and components.
+
+
 ```{r knn-autoplot}
 #| fig.width: 9
 #| fig.height: 5
@@ -95,18 +99,19 @@ show_best(knn_tune, metric = 'roc_auc')
 ```
 
 ```{r visualize-bests}
-knn_best <- select_best(knn_tune, metric = 'roc_auc') %>% 
-  dplyr::select(-.config)
-knn_best
+knn_best <- select_by_one_std_err(knn_tune, neighbors, metric = 'roc_auc') %>% 
+  dplyr::select(c(neighbors, num_comp))
 ```
 
-```{r finalize-knn}
+```{r knn-fit-resamples}
 knn_fit <- knn_wf %>% 
   finalize_workflow(knn_best) %>% 
   fit_resamples(resamples, control = control_resamples(save_pred = TRUE))
 ```
 
-```{r roc-auc}
+The best model based on ROC AUC has 24 neighbors and uses all 3 dimensions. It has a ROC AUC of 0.994. However, there is a simpler model using 8 nearest neighbors that has an ROC AUC of 0.993, which is within one standard error of the best AUC. We will choose this model because it is less complex to check for 8 neighbors than 24 neighbors. Both models use all 3 dimensions.
+
+```{r knn-roc-auc}
 #| fig.width: 9
 #| fig.height: 5
 #| fig.align: center
@@ -124,14 +129,12 @@ knn_preds %>%
   
 ```
 
-The model is very accurate, with high sensitivity and specificity, and a ROC AUC of 0.994. This is an excellent model. If we look at the confusion matrix, however, we see that 76 out of the 1567 total Tarp pixels are missed. In this case, we don't want to miss any tarps, even if it means that we misclassify some Non-Tarp areas as tarps. So we will decrease the threshold to maximize sensitivity.
+Figure 3.X shows the ROC for each of the 10 folds used in cross-validation. The average area under the curve is 0.993. This is an excellent model. If we look at the confusion matrix, however, we see that 76 out of the 1567 total Tarp pixels are missed. In this case, we don't want to miss any tarps, even if it means that we misclassify some Non-Tarp areas as tarps. So we will decrease the threshold to maximize sensitivity and minimize the false negative rate.
 
 ```{r knn-cm}
 # confusion matrix for threshold = 0.5
 conf_mat(knn_preds, truth = Class, estimate = .pred_class)
 ```
-
-
 
 ```{r knn-threshold}
 knn_thresh_perf <- probably::threshold_perf(knn_preds,
@@ -156,7 +159,21 @@ max_j <- knn_thresh_perf %>%
   filter(.metric == 'j_index') %>% 
   filter(.estimate == max(.estimate))
   
+```
 
+Figure 3.X shows the accuracy, sensitivity, specificity, and j-index of the model based on different thresholds between 0 and 1. It is vital to the purpose of this investigation to use sensitivity as a metric, because the false negative rate needs to be as minimal as we can make it so that we can find all of the tarps. The vertical lines indicate the maximum values for j-index and sensitivity.
+
+The plot shows that sensitivity is maximized anywhere below threshold = 0.05 and j-index is maximized at threshold = 0.4. Specificity and accuracy are relatively high and constant throughout, and also less important than sensitivity. We will choose threshold = 0.4 to maximize the j-index given sensitivity does not benefit from using a different value.
+
+
+```{r knn-thresholds}
+#| fig.width: 9
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Visualization of ROC AUC based on number of principal components and nearest neighbors.
+#| dev: "png"
+#| dpi: 100
 ggplot(knn_thresh_perf, aes(x = .threshold, y = .estimate, color = .metric)) +
   geom_line() +
   geom_vline(data = max_sens, aes(xintercept = .threshold, color = .metric)) +
@@ -166,7 +183,7 @@ ggplot(knn_thresh_perf, aes(x = .threshold, y = .estimate, color = .metric)) +
 
 ```
 
-From the plot, we can see that sensitivity is maximised anywhere below threshold = 0.05 and j-index is maximized at threshold = 0.4. Specificity and accuracy are relatively high and constant throughout, and also less important than sensitivity. We will choose threshold = 0.4 to maximize the j-index given sensitivity does not benefit from using a different value.
+
 
 
 
@@ -174,12 +191,9 @@ From the plot, we can see that sensitivity is maximised anywhere below threshold
 knn_preds <- knn_preds %>% 
   mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.04, 'Tarp', 'Non-Tarp')))
 conf_mat(knn_preds, truth = Class, estimate = .pred_class)
-
 ```
 
 After changing the threshold, we only miss 17 Tarp pixels. The model misclassifies more Non-Tarp areas as tarps, as well. In real life, this means that we might send aid to places that don't actually need it. Even so, it is more important for us to make sure we do not overlook actual Blue Tarps where people need help.
-
-The KNN model performs exceedingly well on the cross-validated training data, missing only 1% of blue tarp pixels. Even so, the metrics that matter are: how well can the model classify new pixels? We now apply the model to predict the training data and the metrics are shown below.
 
 ```{r knn-final}
 # fit the final model with the entire training dataset
@@ -202,6 +216,9 @@ knn_test_metrics <- parsnip::augment(knn_final, new_data = train) %>%
 
 ```
 
+The KNN model performs exceedingly well on the cross-validated training data, missing only 1% of blue tarp pixels. Even so, the metrics that matter will be related to the model's performance on the test set. How well can the model classify new pixels? We now apply the model to predict the testing data and the metrics are shown below.
+
+
 ```{r knn-compare-metrics}
 bind_rows(knn_train_metrics %>% mutate(data ='Training'),
           knn_test_metrics %>%  mutate(data = 'Testing')) %>% 
@@ -210,7 +227,7 @@ bind_rows(knn_train_metrics %>% mutate(data ='Training'),
               values_from = .estimate)
 ```
 
-The model yields very good metrics on the testing set, showing little evidence of overfitting.
+The model yields very good metrics on the testing set, showing little evidence of overfitting. Taken on its own, this model would be useful for classifying blue tarps in the pictures.
 
 
 

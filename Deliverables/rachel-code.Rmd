@@ -248,7 +248,8 @@ test <- testing(data_split)
 #| cache: TRUE
 
 formula <- Class ~ Red + Green + Blue
-data_recipe <- recipe(formula, data = train)
+data_recipe <- recipe(formula, data = train) %>% 
+  step_pca(all_numeric_predictors(), num_comp = parsnip::tune()) ######## !!!!
 lda_spec <- discrim_linear(mode = "classification") %>% 
   set_engine('MASS')
 ```
@@ -258,7 +259,6 @@ lda_spec <- discrim_linear(mode = "classification") %>%
 lda_wf <- workflow() %>% 
   add_recipe(data_recipe) %>% 
   add_model(lda_spec)
-
 ```
 
 ```{r CV and metrics}
