@@ -5,7 +5,6 @@ date: "2024-02-20"
 output: html_document
 ---
 
-
 ```{r load-packages}
 knitr::opts_chunk$set(cahce = TRUE, autodep = TRUE)
 library(tidyverse)
@@ -14,6 +13,8 @@ library(ggcorrplot)
 library(GGally)
 library(patchwork)
 library(doParallel)
+cl <- makePSOCKcluster(parallel::detectCores(logical = FALSE))
+registerDoParallel(cl)
 ```
 
 ```{r load-data}
@@ -81,7 +82,7 @@ knn_tune <- tune_grid(knn_wf,
 #| fig.height: 5
 #| fig.align: center
 #| out.width: 70%
-#| fig.cap: Visualization of ROC AUC based on number of principal components and nearest neighbors.
+#| fig.cap: ROC AUC based on number of principal components and nearest neighbors.
 #| dev: "png"
 #| dpi: 100
 # visualize results
@@ -106,10 +107,127 @@ knn_fit <- knn_wf %>%
 ```
 
 ```{r roc-auc}
+#| fig.width: 9
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: ROC AUC for KNN model with 24 neighbors and 3 components based on 10-fold cross validation.
+#| dev: "png"
+#| dpi: 100
+# plot ROC AUC
 knn_preds <-  collect_predictions(knn_fit)
 knn_preds %>% 
+  group_by(id) %>% 
   roc_curve(truth = Class, '.pred_Tarp', event_level = 'second') %>% 
-  autoplot()
+  autoplot() +
+  theme(legend.position = 'none')
   
 ```
+
+The model is very accurate, with high sensitivity and specificity, and a ROC AUC of 0.994. This is an excellent model. If we look at the confusion matrix, however, we see that 76 out of the 1567 total Tarp pixels are missed. In this case, we don't want to miss any tarps, even if it means that we misclassify some Non-Tarp areas as tarps. So we will decrease the threshold to maximize sensitivity.
+
+```{r knn-cm}
+# confusion matrix for threshold = 0.5
+conf_mat(knn_preds, truth = Class, estimate = .pred_class)
+```
+
+
+
+```{r knn-threshold}
+knn_thresh_perf <- probably::threshold_perf(knn_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = metric_set(j_index,
+                                                                 specificity,
+                                                                 sensitivity,
+                                                                 accuracy))
+```
+
+
+
+```{r knn-metric-plot}
+max_sens <- knn_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+max_j <- knn_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+  
+
+ggplot(knn_thresh_perf, aes(x = .threshold, y = .estimate, color = .metric)) +
+  geom_line() +
+  geom_vline(data = max_sens, aes(xintercept = .threshold, color = .metric)) +
+  geom_vline(data = max_j, aes(xintercept = .threshold, color = .metric)) +
+  scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+  labs(x = 'Threshold', y = 'Metric value')
+
+```
+
+From the plot, we can see that sensitivity is maximised anywhere below threshold = 0.05 and j-index is maximized at threshold = 0.4. Specificity and accuracy are relatively high and constant throughout, and also less important than sensitivity. We will choose threshold = 0.4 to maximize the j-index given sensitivity does not benefit from using a different value.
+
+
+
+```{r knn-conf-mtx}
+knn_preds <- knn_preds %>% 
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.04, 'Tarp', 'Non-Tarp')))
+conf_mat(knn_preds, truth = Class, estimate = .pred_class)
+
+```
+
+After changing the threshold, we only miss 17 Tarp pixels. The model misclassifies more Non-Tarp areas as tarps, as well. In real life, this means that we might send aid to places that don't actually need it. Even so, it is more important for us to make sure we do not overlook actual Blue Tarps where people need help.
+
+The KNN model performs exceedingly well on the cross-validated training data, missing only 1% of blue tarp pixels. Even so, the metrics that matter are: how well can the model classify new pixels? We now apply the model to predict the training data and the metrics are shown below.
+
+```{r knn-final}
+# fit the final model with the entire training dataset
+knn_final <- knn_wf %>% 
+  finalize_workflow(knn_best) %>% 
+  fit(train)
+```
+
+
+```{r knn-test-metrics}
+get_metrics <- metric_set(j_index, sensitivity, specificity, accuracy)
+
+# get metrics on training data
+knn_train_metrics <- knn_preds %>% 
+  get_metrics(truth = Class, estimate = .pred_class)
+
+# get metrics on test data
+knn_test_metrics <- parsnip::augment(knn_final, new_data = train) %>%
+  get_metrics(truth = Class, estimate = .pred_class)
+
+```
+
+```{r knn-compare-metrics}
+bind_rows(knn_train_metrics %>% mutate(data ='Training'),
+          knn_test_metrics %>%  mutate(data = 'Testing')) %>% 
+  pivot_wider(id_cols =.metric,
+              names_from = data,
+              values_from = .estimate)
+```
+
+The model yields very good metrics on the testing set, showing little evidence of overfitting.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
