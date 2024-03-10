@@ -6,8 +6,8 @@ output: html_document
 ---
 
 
-
 ```{r load-packages}
+knitr::opts_chunk$set(cahce = TRUE, autodep = TRUE)
 library(tidyverse)
 library(tidymodels)
 library(ggcorrplot)
@@ -20,15 +20,11 @@ library(doParallel)
 # load data from file
 # file = "https://gedeck.github.io/DS-6030/project/HaitiPixels.csv"
 file = '../data.csv'
-data <- read_csv(file)
+data <- read_csv(file) %>% 
+  mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
+
 data %>% glimpse()
 data %>% summary()
-```
-
-```{r transform-data}
-# clean up dataframe
-data <- data %>% 
-  mutate(Class = as.factor(Class))
 ```
 
 
@@ -36,7 +32,7 @@ This section will explore modeling the blue tarp classification with a K-nearest
 
 ```{r split-data}
 # split into testing and training set
-data_split <- initial_split(data)
+data_split <- initial_split(data, 0.8, strata = Class)
 
 train <- training(data_split)
 test <- testing(data_split)
@@ -52,12 +48,12 @@ formula <- Class ~ Red + Green + Blue
 
 # define recipe
 knn_rec <- recipe(formula = formula, data = train) %>% 
-  step_pca(all_numeric_predictors(), num_comp = tune())
+  step_pca(all_numeric_predictors(), num_comp = parsnip::tune())
 
 # define model
 knn_model <- nearest_neighbor(mode = 'classification',
                             engine = 'kknn',
-                            neighbors = tune())
+                            neighbors = parsnip::tune())
 
 # define workflow
 knn_wf <- workflow() %>% 
@@ -65,14 +61,55 @@ knn_wf <- workflow() %>%
   add_model(knn_model)
 
 # get tuning parameters
-parameters <- extract_parameter_set_dials(knn_wf)
-parameters
+parameters <- extract_parameter_set_dials(knn_wf) %>% 
+  update(num_comp = num_comp(c(1, 3)),
+         neighbors = neighbors(c(2, 50))
+  )
 ```
 
+```{r tune-knn, cache = TRUE}
+# tune with grid
+knn_tune <- tune_grid(knn_wf,
+                      resamples = resamples,
+                      grid = grid_latin_hypercube(parameters, size = 30),
+                      control = control_resamples(save_pred = TRUE)
+                      )
+```
 
+```{r knn-autoplot}
+#| fig.width: 9
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Visualization of ROC AUC based on number of principal components and nearest neighbors.
+#| dev: "png"
+#| dpi: 100
+# visualize results
+autoplot(knn_tune, metric = 'roc_auc')+
+  geom_line()
+```
 
+```{r knn-show-best}
+show_best(knn_tune, metric = 'roc_auc')
+```
 
-```{r recipe}
+```{r visualize-bests}
+knn_best <- select_best(knn_tune, metric = 'roc_auc') %>% 
+  dplyr::select(-.config)
+knn_best
+```
 
+```{r finalize-knn}
+knn_fit <- knn_wf %>% 
+  finalize_workflow(knn_best) %>% 
+  fit_resamples(resamples, control = control_resamples(save_pred = TRUE))
+```
+
+```{r roc-auc}
+knn_preds <-  collect_predictions(knn_fit)
+knn_preds %>% 
+  roc_curve(truth = Class, '.pred_Tarp', event_level = 'second') %>% 
+  autoplot()
+  
 ```
 
