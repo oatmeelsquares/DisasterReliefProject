@@ -315,6 +315,7 @@ max_j_pen <- penal_log_thres_perf %>%
 
 ```
 
+The threshold plots for these models show that for both models when maximizing the sensitivity they share the same threshold at .01. We are interested in maximizing sensitivity as time to first response is the most important thing in disaster scenarios. For this circumstance that means that we want to set the thresholds to the .01. Additionally, while this decision does sacrifice total performance the j-index for both metrics still performs at .94 for the log model and .90 for the penalized log model reflecting a respectable score overall.
 ```{r log_threshold_plots}
 
 ggplot(log_thres_perf, aes(x = .threshold, y = .estimate, color = .metric)) +
@@ -332,8 +333,10 @@ ggplot(log_thres_perf, aes(x = .threshold, y = .estimate, color = .metric)) +
   labs(title= "Penalized Logistic Model", x = 'Threshold', y = 'Metric value')
 
 ```
+The confusion matrix when the thresholds are set to maximizing the sensitivity for both metrics results in only 12 false negatives for the base logistic model and 2 for the penalized logistic regression model. Depending on the circumstances it may be worthwhile to examine a more balanced threshold which is done by selecting the J-index max below. These would be more useful if resources are limited and the rescue team does not have the resources to full examine all options. This does however result in more false negatives with 37 and 34 respectively that could be potentially damaging to response efforts.
 ```{r log_conf_matrix}
 
+# Confusion Matrices for the Logistic Regression Models
 log_preds <- log_preds %>% 
   mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.01, 'Tarp', 'Other')))
 conf_mat(log_preds, truth = Class, estimate = .pred_class)
@@ -342,6 +345,13 @@ log_preds <- log_preds %>%
   mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.5, 'Tarp', 'Other')))
 conf_mat(log_preds, truth = Class, estimate = .pred_class)
 
+log_preds <- log_preds %>% 
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.04, 'Tarp', 'Other')))
+conf_mat(log_preds, truth = Class, estimate = .pred_class)
+
+writeLines("\n\n")
+
+# Confusion Matrices for the penalized logistic regresion models
 penalized_log_preds <- penalized_log_preds %>% 
   mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.01, 'Tarp', 'Other')))
 conf_mat(penalized_log_preds, truth = Class, estimate = .pred_class)
@@ -349,6 +359,11 @@ conf_mat(penalized_log_preds, truth = Class, estimate = .pred_class)
 penalized_log_preds <- penalized_log_preds %>% 
   mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.5, 'Tarp', 'Other')))
 conf_mat(penalized_log_preds, truth = Class, estimate = .pred_class)
+
+penalized_log_preds <- penalized_log_preds %>% 
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.05, 'Tarp', 'Other')))
+conf_mat(penalized_log_preds, truth = Class, estimate = .pred_class)
+
 
 
 ```
@@ -374,6 +389,7 @@ pen_log_test_metrics <- parsnip::augment(tuned_logreg_model, new_data = test) %>
 
 ```
 
+When evaluating the final model we note that the penalized and non penalized model both have very similar scores of sensitivity of .999 with their testing sets. While the models are similar in this regard all other metrics are outperformed by the base model rather than the penalized model. While our goal should be to maximize the sensitivity going with the Logistic Regression model will allow us more flexibility when it comes to instances where we are interested in more balanced outputs. For that reason we would select the Logistic Regression model over the Penalized Logistic Regression Model as our final ideal model.
 ```{r final_metrics_comparison}
 
 bind_rows(log_train_metrics %>% mutate(data ="Log Training"),
