@@ -97,10 +97,13 @@ data <- data %>%
 
 ## Logistic Regression Model
 
+
 ```{r Parallel_processing}
 cl <- makePSOCKcluster(parallel::detectCores(logical = FALSE))
 registerDoParallel(cl)
 ```
+
+The first step of this analysis is to split the dataset into training and testing sets. We ensure that the response variable has been set as the strata for accurate splitting of the variable.
 
 ```{r Split_Model}
 set.seed(1)
@@ -110,6 +113,8 @@ train <- training(data_split)
 test <- testing(data_split)
 
 ```
+
+The logistic regression model is defined in the set of code below with a recipe and engine fit into the workflow.
 
 ```{r Create_Model}
 
@@ -125,40 +130,32 @@ logreg_wf <- workflow() %>%
 
 ```
 
-```{r Create_multinomial_model}
+To evaluate across models and tuning parameters a 10 fold cross-validation will be used for model performance. The code below saves the arguments as variables for fitting the resamples that will be used as the CV folds in the model evaluation.
 
-multireg_spec <- multinom_reg(engine = "glmnet" , mode="classification")
-
-multireg_wf <- workflow() %>% 
-  add_recipe(rec) %>% 
-  add_model(multireg_spec)
-```
-
-
-```{r Cross_Validation}
+```{r Cross_Validation_Logistic}
 
 resamples <- vfold_cv(train, v=10, strata=Class)
-metric_evals <- metric_set(roc_auc, accuracy)
+metric_evals <- metric_set(roc_auc)
 cv_control <- control_resamples(save_pred = TRUE)
 
 logreg_cv <- fit_resamples(logreg_wf, resamples, metrics=metric_evals, control=cv_control)
 ```
 
+This code block evaluates the metrics from fitting the cross fold models using both accuracy and the roc_auc. We note a very high score within the roc_auc and a similarly high value within the accuracy. Below we also plot a ROC_AUC curve to evaluate the performance of the models visually.
 
-
-```{r Metrics}
+```{r Metrics_logistic}
 
 cv_metrics <- bind_rows(
   collect_metrics(logreg_cv) %>% mutate(model="Logistic Regression")
 )
 
-ggplot(cv_metrics, aes(x=mean, y=model, xmin=mean-std_err, xmax=mean+std_err))+
-  geom_point()+
-  geom_linerange()+
-  facet_wrap(~ .metric)
-
+#ggplot(cv_metrics, aes(x=mean, y=model, xmin=mean-std_err, xmax=mean+std_err))+
+ # geom_point()+
+  #geom_linerange()+
+  #facet_wrap(~ .metric)
+cv_metrics
 ```
-```{r ROC_AUC_Curves}
+```{r ROC_AUC_Curves_Logistic}
 
 roc_cv_plot <- function(model_cv, model_name) {
   cv_predictions <-collect_predictions(model_cv)
@@ -170,15 +167,17 @@ g1 <- roc_cv_plot(logreg_cv, "Logistic regresson")
 g1
 
 ```
-
-```{r fit_model_before_tuning}
+ We fit the untuned version of the model to compare against a penalized model.
+```{r fit_model_before_tuning_logistic}
 logreg_untuned_model <- logreg_wf %>% fit(train)
 ```
 
 ## Penalized Logistic Regression Model
 
 
-```{r Model_Tuning}
+Set up the penalized logistic regression model that will be tuned on both a penalty factor and a mixture for the model. Penalty parameter was experimented with until a range where the drop off was near the middle of the chart could be chosen.
+
+```{r Model_Tuning_Logistic_Penalized}
 
 tune_logreg_spec <- logistic_reg(engine="glmnet", mode="classification",
                                  penalty = tune(), mixture= tune())
@@ -189,23 +188,26 @@ tune_logreg_wf <- workflow() %>%
 
 logreg_params <- extract_parameter_set_dials(tune_logreg_wf) %>% 
   update(
-    penalty=penalty(c(-3,.75)),
+    penalty=penalty(c(-20,-1)),
     mixture=mixture(c(0,1))
   )
 ```
 
-```{r Cross_Validation_Tuned_Model}
+Run the model across the cross validation folds and extract the three best versions of the model using the roc_auc as a metric of evaluation. We note that the best models tend to have a lower mixture (closer to a ridge regression penalty) and a low penalty negative penalty value for lambda. We note a drop off for regularization around -5, and fairly even lasso penalty after .1 with sporadic models under performing across the range.
+
+```{r Cross_Validation_Tuned_Model_Logistic_Penalized}
 
 tune_results_logreg <- tune_grid(tune_logreg_wf,
                                  resamples=resamples,
                                  control=cv_control,
-                                 grid=grid_random(logreg_params, size=50))
+                                 grid=grid_latin_hypercube(logreg_params, size=50))
 show_best(tune_results_logreg, metric="roc_auc", n=3)
 ```
 
-```{r plot_grid_results}
+```{r plot_grid_results_Logistic_Penalized}
 autoplot(tune_results_logreg)
 ```
+Showing the metrics of the logistic regression model and comparing the roc_auc of the model to the penalized logistic regression model.
 
 ```{r tuned_parameter_selection}
 
@@ -224,17 +226,21 @@ g1_tuned <- collect_predictions(tune_results_logreg,
 g1/g1_tuned
 ```
 
+Fit the penalized logistic regression model and showcase the final performance metrics of the logistic regression model vs the penalized logistic regression model. When examining the performance of the two models we note that the logistic regression model seems to perform better over the penalized logistic regression model.
+
 ```{r Finalize_the_models}
 
 tuned_logreg_model <- tune_logreg_wf %>% 
   finalize_workflow(select_best(tune_results_logreg, metric="roc_auc")) %>% 
   fit(train)
 
+tuned_logreg_model_cv <- tune_logreg_wf %>% 
+  finalize_workflow(select_best(tune_results_logreg, metric="roc_auc")) %>% 
+  fit_resamples(resamples, metrics=metric_evals, control=cv_control)
+
 cv_metrics <- bind_rows(
   collect_metrics(logreg_cv) %>%
     mutate(model="Logistic regression untuned"),
-  show_best(tune_results_logreg, metric="accuracy", 1) %>%
-    mutate(model="Logistic regression tuned"),
   show_best(tune_results_logreg, metric="roc_auc", 1) %>%
     mutate(model="Logistic regression tuned"),
   
@@ -258,6 +264,133 @@ ggplot(aes(x=.estimate, y=model)) +
   facet_wrap(~ .metric)
 ```
 
+
+
+```{r logistic-cm}
+
+log_preds <- collect_predictions(logreg_cv)
+penalized_log_preds <- collect_predictions(tuned_logreg_model_cv) 
+```
+
+```{r log_threshold}
+log_thres_perf <- probably::threshold_perf(log_preds,
+                                           Class,
+                                           .pred_Tarp,
+                                           threshold=seq(0.01,0.99,0.01),
+                                           event_level= "second",
+                                           metrics= metric_set(j_index,
+                                                               specificity,
+                                                               sensitivity,
+                                                               accuracy))
+
+penal_log_thres_perf <- probably::threshold_perf(penalized_log_preds,
+                                           Class,
+                                           .pred_Tarp,
+                                           threshold=seq(0.01,0.99,0.01),
+                                           event_level= "second",
+                                           metrics= metric_set(j_index,
+                                                               specificity,
+                                                               sensitivity,
+                                                               accuracy))
+```
+
+```{r log_metric_plot}
+
+max_sens_log <- log_thres_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+max_j_log <- log_thres_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+max_sens_pen <- penal_log_thres_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+max_j_pen <- penal_log_thres_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+  
+
+```
+
+```{r log_threshold_plots}
+
+ggplot(log_thres_perf, aes(x = .threshold, y = .estimate, color = .metric)) +
+  geom_line() +
+  geom_vline(data = max_sens_log, aes(xintercept = .threshold, color = .metric)) +
+  geom_vline(data = max_j_log, aes(xintercept = .threshold, color = .metric)) +
+  scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+  labs(title= "Logistic Model",x = 'Threshold', y = 'Metric value')
+
+ggplot(log_thres_perf, aes(x = .threshold, y = .estimate, color = .metric)) +
+  geom_line() +
+  geom_vline(data = max_sens_pen, aes(xintercept = .threshold, color = .metric)) +
+  geom_vline(data = max_j_pen, aes(xintercept = .threshold, color = .metric)) +
+  scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+  labs(title= "Penalized Logistic Model", x = 'Threshold', y = 'Metric value')
+
+```
+```{r log_conf_matrix}
+
+log_preds <- log_preds %>% 
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.01, 'Tarp', 'Other')))
+conf_mat(log_preds, truth = Class, estimate = .pred_class)
+
+log_preds <- log_preds %>% 
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.5, 'Tarp', 'Other')))
+conf_mat(log_preds, truth = Class, estimate = .pred_class)
+
+penalized_log_preds <- penalized_log_preds %>% 
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.01, 'Tarp', 'Other')))
+conf_mat(penalized_log_preds, truth = Class, estimate = .pred_class)
+
+penalized_log_preds <- penalized_log_preds %>% 
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.5, 'Tarp', 'Other')))
+conf_mat(penalized_log_preds, truth = Class, estimate = .pred_class)
+
+
+```
+
+```{r log_metrics_training}
+
+get_metrics <- metric_set(j_index, sensitivity, specificity, accuracy)
+
+# Get Metrics on train data
+log_train_metrics <- log_preds %>% 
+  get_metrics(truth= Class, estimate = .pred_class)
+
+pen_log_train_metrics <- penalized_log_preds %>% 
+  get_metrics(truth= Class, estimate = .pred_class)
+
+# Get Metrics on test data
+
+log_test_metrics <- parsnip::augment(logreg_untuned_model, new_data = test) %>% 
+  get_metrics(truth = Class, estimate = .pred_class)
+
+pen_log_test_metrics <- parsnip::augment(tuned_logreg_model, new_data = test) %>% 
+  get_metrics(truth = Class, estimate = .pred_class)
+
+```
+
+```{r final_metrics_comparison}
+
+bind_rows(log_train_metrics %>% mutate(data ="Log Training"),
+          log_test_metrics %>% mutate(data = "Log Testing"),
+          pen_log_train_metrics %>% mutate(data = "Penalized Log Training"),
+          pen_log_test_metrics %>% mutate(data = "Penalized Log Testing")) %>% 
+  pivot_wider(id_cols = .metric,
+              names_from = data,
+              values_from = .estimate)
+
+
+```
+
+
+
+
+
 ```{r Stop_Parallel_Processing}
 stopCluster(cl)
 registerDoSEQ()
@@ -276,32 +409,3 @@ registerDoSEQ()
 
 
 
-
-
-```{r Parameter_Tuning}
-
-```
-
-```{r Model_Validation}
-
-```
-
-```{r Threshold_Selection}
-
-```
-
-```{r Model_Performance_Evaluation}
-
-```
-
-```{r ROC_AUC_Curves}
-
-```
-
-```{r Optimal_Model_Tuning_Parameters}
-
-```
-
-```{r ACC_TPR_FPR_Precision_at_Threshold}
-
-```
