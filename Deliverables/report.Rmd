@@ -24,8 +24,11 @@ registerDoParallel(cl)
 
 # Section 1: Introduction
 
->What is the key idea for locating people and why do we expect it to work?
+The 2010 earthquake in Haiti was a devastating natural disaster that caused extreme damaged and displaced millions of people. After this disaster, the rescue workers needed to deliver food, water, and other resources to the people of Haiti, but it was challenging locating the people in need over this large area. These challenges included roads blocked by rubble and the inability to communicate as traditional lines of communication were destroyed by the earthquake. The rescue workers needed to find another strategy other than physically looking for them on land to locate and reach these displaced persons quickly and more efficiently. 
 
+The people of Haiti who were displaced by the earthquake were using blue tarps as temporary shelter. This knowledge was utilized to locate these people after imagery was collected by aircraft flown by a rescue team from the Rochester Institute of Technology. Blue tarps could be searched for within these images by the rescue team who would then go to these coordinates and find them. However, that strategy would have been too slow, and resources would not have been delivered in time. A different strategy that could be used to more efficiently locate people in need of resources was to continue to use these images but instead use data-mining algorithms to search these images. 
+
+This report explores various classification methods that could be useful in locating these blue tarps within the imagery taken by aircraft. The algorithms tested and explored include those that utilize Logistic Regression, Linear Discriminant Analysis, Quadratic Discriminant Analysis, K-nearest Neighbors, and Penalized Logistic Regression. We expect at least one of these methods to work more efficiently and more accurately than human efforts as these algorithms can handle more data, perform complex operations, and potentially fit to the patterns of the data to identify the blue tarps. The chosen algorithm may be less likely to miss as many blue tarps as a human would, and it is critical to identify that algorithm that will perform the best. This is an important data-mining problem that could have a large impact on human life. This report will identify the algorithm that most accurately and most efficiently identifies these blue tarps so that the displaced persons in Haiti in need of resources can receive them on time. 
 
 
 # Section 2: Data
@@ -207,12 +210,127 @@ knn_tmetrics_plot <- threshold_metric_plot(knn_thresh_perf, knn_max_sens, knn_ma
 # get predictions and metrics based on chosen threshold
 knn_threshold_preds <- knn_preds %>% 
   mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.04, 'Tarp', 'Non-Tarp')))
+
 knn_threshold_metrics <- threshold_merics(knn_threshold_preds)
 
 # get confusion matrix for chosen threshold
 knn_cm <- conf_mat(knn_threshold_preds, truth = Class, estimate = .pred_class)
 ```
 
+
+# Linear Discriminant Analysis
+
+```{r lda}
+# define model spec
+lda_spec <- discrim_linear(mode = "classification") %>% 
+  set_engine('MASS')
+
+# define workflow
+lda_wf <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(lda_spec)
+
+
+#fit resamples
+lda_fitcv <- fit_resamples(lda_wf, resamples,  control=cv_control)
+
+# collect predictions and roc_auc from cross-validated fit
+lda_preds <-  collect_predictions(lda_fitcv)
+lda_metrics <- collect_metrics(lda_fitcv)
+#will just talk about ROC in write up without graph/listed metrics
+
+# get threshold selection info
+lda_thresh_perf <- probably::threshold_perf(lda_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = metric_set(j_index,
+                                                                 specificity,
+                                                                 sensitivity,
+                                                                 accuracy))
+
+# get threshold for best sensitivity
+lda_max_sens <- lda_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+lda_max_j <- lda_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+lda_tmetrics_plot <- threshold_metric_plot(lda_thresh_perf, lda_max_sens, lda_max_j)
+
+# get predictions and metrics based on chosen threshold
+lda_threshold_preds <- lda_preds %>% 
+ mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.01, 'Tarp', 'Non-Tarp')))
+
+lda_threshold_metrics <- threshold_metrics(lda_threshold_preds, truth = Class, estimate = .pred_class)
+lda_threshold_metrics
+
+# get confusion matrix for chosen threshold
+lda_cm <- conf_mat(lda_threshold_preds, truth = Class, estimate = .pred_class)
+
+```
+
+# Quadratic Discriminant Analysis
+
+```{r qda}
+# define model spec
+qda_spec <- discrim_quad(mode = "classification") %>% 
+  set_engine('MASS')
+
+# define workflow
+qda_wf <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(qda_spec)
+
+
+#fit resamples
+qda_fitcv <- fit_resamples(qda_wf, resamples,  control=cv_control)
+
+# collect predictions and roc_auc from cross-validated fit
+qda_preds <-  collect_predictions(qda_fitcv)
+qda_metrics <- collect_metrics(qda_fitcv)
+#will just talk about ROC in write up without graph/listed metrics
+
+# get threshold selection info
+qda_thresh_perf <- probably::threshold_perf(qda_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = metric_set(j_index,
+                                                                 specificity,
+                                                                 sensitivity,
+                                                                 accuracy))
+
+# get threshold for best sensitivity
+qda_max_sens <- qda_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+qda_max_j <- qda_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+qda_tmetrics_plot <- threshold_metric_plot(qda_thresh_perf, qda_max_sens, qda_max_j)
+
+
+# get predictions and metrics based on chosen threshold
+qda_threshold_preds <- qda_preds %>% 
+ mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.01, 'Tarp', 'Non-Tarp')))
+
+qda_threshold_metrics <- threshold_metrics(qda_threshold_preds, truth = Class, estimate = .pred_class)
+
+
+# get confusion matrix for chosen threshold
+qda_cm <- conf_mat(qda_threshold_preds, truth = Class, estimate = .pred_class)
+```
 
 > Write-up
 
