@@ -1,0 +1,119 @@
+---
+title: 'Disaster Relief Project, Part 1'
+author: "Becky Desrosiers, Abner Casillas-Colon, Rachel Daniel"
+date: "2024-03-16"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(cahce = TRUE, autodep = TRUE)
+library(tidyverse)
+library(tidymodels)
+library(ggcorrplot)
+library(GGally)
+library(discrim)
+library(patchwork)
+library(doParallel)
+cl <- makePSOCKcluster(parallel::detectCores(logical = FALSE))
+registerDoParallel(cl)
+
+# load data from file
+# file = "https://gedeck.github.io/DS-6030/project/HaitiPixels.csv"
+file = '../data.csv'
+data <- read_csv(file) %>% 
+  mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
+
+data %>% glimpse()
+data %>% summary()
+```
+
+# Section 1: Introduction
+
+>What is the key idea for locating people and why do we expect it to work?
+
+
+
+# Section 2: Data
+
+>You will need to do some EDA
+- EDA - focus your discussion of the results on what it means for the model
+- Be selective with your EDA. Focus on results that have a relevance to the project. You can always mention that you tried other visualizations, but didn’t get much more out of it. If you add a graph, it should add to your analysis and cover something that cannot already be seen in other graphs.
+
+
+
+
+
+# Section 3: Description of Methodology
+
+>Overall model building process well defined and explained.
+• describe used software
+• describe and justify parameter tuning and model selection (if applicable)
+• describe and justify model validation
+• describe and justify threshold selection
+• describe and justify metrics used for model performance evaluation
+
+>Model training consists of these steps:
+- Model validation using 10-fold cross validation; this includes model tuning if applicable
+- what metric will you use?
+- Threshold selection
+- what metric will you use?
+- Are “penalized logistic regression” and “logistic regression” really two different models or just variations of the same?
+
+
+
+
+# Section 4: Results of Model Fitting, Tuning Parameter Selection, and Evaluation
+
+
+>Model performance summarized in one or more tables or figures. Expected information shown:
+• ROC curves and AUC
+• Optimal model tuning parameters
+• Selected threshold
+• Accuracy, TPR, FPR, Precision calculated at selected threshold
+
+>When you present metrics, talk about their relevance for the objective of this project
+- When you present your results, split it into results from model validation and results after threshold selection. e.g. ROC curves are only relevant for discussing model validation results and not threshold selection; reporting accuracy or any other threshold dependent metric prior to threshold selection is irrelevant.
+- If you visualize the same analysis for each model, combine them either in a single graph or a combination of graphs in one figure (using patchwork)
+
+>Focus your discussion also on differences between models.
+- For example LDA and QDA are conceptually similar but differ in the way they can represent the decision boundary. 
+- What do the differences in the results for LDA and QDA tell you?
+- Another example that you can discuss is the difference between , penalized logistic regression and logistic regression.
+
+
+
+# Section 5: Conclusion
+
+
+>Three or more clearly identifiable conclusions. This section is more important than the previous sections (as
+reflected in the points). Give sufficient explanation and justification for each conclusion.
+One conclusion must be:
+• determination and justification of which algorithm works best.
+Additional conclusions should be observations you’ve made based on your work on this project, such as:
+• What additional recommend actions can be taken to improve results?
+• Were there multiple adequately performing methods, or just one clear best method? What is your level
+of confidence in the results?
+• What is it about this data formulation that allows us to address it with predictive modeling tools?
+• How effective do you think your work here could actually be in terms of helping to save human life?
+• Do these data seem particularly well-suited to one class of prediction methods, and if so, why?
+These are only suggestions, pursue your own interests. Your best two additional conclusions will be graded.
+Make sure that the 3 conclusions are clearly separated.
+
+
+
+
+
+
+
+
+
+
+# Appendix
+
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```
