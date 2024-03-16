@@ -64,7 +64,7 @@ data %>% summary()
 - what metric will you use?
 - Are “penalized logistic regression” and “logistic regression” really two different models or just variations of the same?
 
-From Becky: be sure to mention we did a 20-80 test-training split with stratified sampling of Blue Tarp pixels.
+>From Becky: be sure to mention we did a 20-80 test-training split with stratified sampling of Blue Tarp pixels.
 
 
 
@@ -92,14 +92,11 @@ From Becky: be sure to mention we did a 20-80 test-training split with stratifie
 
 
 ```{r convenience-functions}
-# define variables and functions to use later for convenience
-auc_metric <- metric_set(roc_auc)
-
+# define functions to use later for convenience
 cv_control <- control_resamples(save_pred = TRUE)
 
-roc_plot <- function(model_fitcv) {
-  model_fitcv %>% 
-    collect_predictions() %>% 
+roc_plot <- function(model_preds) {
+  model_preds %>% 
     roc_curve(truth = Class,
               .pred_Tarp,
               event_level = 'second') %>% 
@@ -129,6 +126,11 @@ threshold_metric_plot <- function(model_preds) {
     geom_vline(data = max_j, aes(xintercept = .threshold, color = .metric)) +
     scale_x_continuous(breaks = seq(0, 1, 0.1)) +
     labs(x = 'Threshold', y = 'Metric value')
+  
+  # print(bind_rows(max_sens, max_j) %>% 
+  #   pivot_wider(names_from = .metric,
+  #               values_from = .estimate)
+  # )
 }
 
 threshold_metrics <- metric_set(j_index,
@@ -136,78 +138,90 @@ threshold_metrics <- metric_set(j_index,
                                 sensitivity,
                                 accuracy)
 
-get_metrics <- function(final_model, data) {
-  threshold_metrics(parsnip::augment(final_model, data),
-                    truth = Class,
-                    estimate = .pred_class)
-}
 
-metric_table <- function(final_model) {
-  bind_rows(get_metrics(final_model, train) %>% 
-              mutate(data = 'train'),
-            get_metrics(final_model, test) %>% 
-              mutate(data = 'test')
-            ) %>% 
-    pivot_wider(id_cols = data,
-                names_from = .metric,
-                values_from = .estimate) %>% 
-    mutate(difference = test - train)
+threshold_preds <- function(preds, threshold) {
+    preds <- preds %>% 
+    mutate(.pred_class = factor(ifelse(.pred_Tarp >= threshold, 'Tarp', 'Non-Tarp')))
 }
 
 ```
 
 
 ```{r model-setup}
-# split data into training-test sets
-set.seed(1)
-data_split <- initial_split(data, prop = .8, strata = Class)
-train <- training(data_split)
-test <- testing(data_split)
-
 # prepare resamples for 10-fold cross-validation
-resamples <- vfold_cv(train, v=10, strata=Class)
+set.seed(6030)
+resamples <- vfold_cv(data, v = 10, strata=Class)
 
 # define formula
 formula <- Class ~ Red + Green + Blue
 
 # define basic recipe
-rec <- recipe(formula, data = train)
+rec <- recipe(formula, data = data)
 ```
 
 
 ## Section 4.1: Logistic Regression Model
 
 
-```{r logreg, warning = FALSE, message = FALSE}
-# define and execute cross validation workflow for logistic regression
-logreg_spec <- logistic_reg(engine = "glm",
-                            mode = "classification")
+```{r k-nearest-neighbors}
+# define model spec
+knn_spec <- nearest_neighbor(mode = 'classification',
+                            engine = 'kknn',
+                            neighbors = parsnip::tune())
 
-logreg_wf <- workflow() %>% 
-  add_recipe(rec) %>% 
-  add_model(logreg_spec)
+# define workflow
+knn_wf <- workflow() %>% 
+  add_recipe(knn_rec) %>% 
+  add_model(knn_model)
 
-logreg_fitcv <- logreg_wf %>% 
-  fit_resamples(resamples,
-                control = cv_control)
+# set tuning parameters
+knn_params <- extract_parameter_set_dials(knn_wf) %>% 
+  update(neighbors = neighbors(c(2, 50)))
 
-# collect metrics and predictions from cross-validated fit
-logreg_cv_metrics <- collect_metrics(logreg_fitcv) %>% 
-  dplyr::select(c(.metric, mean))
+# tune with grid
+knn_tune <- tune_grid(knn_wf,
+                      resamples = resamples,
+                      grid = grid_regular(knn_params, levels = 49),
+                      control = control_resamples(save_pred = TRUE)
+                      )
 
-logreg_preds <- collect_predictions(logreg_fitcv)
+# collect predictions and roc_auc from cross-validated fit
+knn_preds <-  collect_predictions(knn_fit)
 
-# collect metrics for finalized model
-logreg_final <- logreg_wf %>% 
-  fit(train)
 
-logreg_train_metrics <- get_metrics(logreg_final, train)
-logreg_test_metrics <- get_metrics(logreg_final, test)
+# get threshold selection info
+knn_thresh_perf <- probably::threshold_perf(knn_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = metric_set(j_index,
+                                                                 specificity,
+                                                                 sensitivity,
+                                                                 accuracy))
+
+# get threshold for best sensitivity
+max_sens <- knn_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+max_j <- knn_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get predictions based on chosen threshold
+knn_preds <- knn_preds %>% 
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.04, 'Tarp', 'Non-Tarp')))
+
+
 ```
 
-The first model investigated by this report is a simple logistic regression with no penalty. Following the methodology specified, the model was defined and resamples were fitted to find the roc_auc.
 
-```{r figure-1}
+> Write-up
+
+
+```{r knn-auc-vs-metrics}
 #| fig.width: 9
 #| fig.height: 5
 #| fig.align: center
@@ -216,99 +230,126 @@ The first model investigated by this report is a simple logistic regression with
 #| dev: "png"
 #| dpi: 100
 # display logreg ROC curve
-roc_plot(logreg_fitcv)
+roc_plot(logreg_preds)
 ```
 
-We note a very high area under the curve (AUC) of **0.9976**, indicating a very effective model. Figure 1 shows the corresponding receiver operating characteristic (ROC) curve to demonstrate the performance of the model. From the visualization, it is clear that the model performs well. To optimize its predictive capability, we now investigate further to choose a threshold.
+> describe ROC curve, report AUC (without printing it out), and 
+
+Figure 1 shows the corresponding ROC curve to demonstrate the performance of the model. We note a very high AUC of **0.9987**, indicating a very effective model. From the visualization and the ROC AUC metric, it is clear that the model performs well. To optimize its predictive capability, we now investigate further to choose a threshold.
 
 
-```{r figure-2}
+```{r }
 #| fig.width:8
-#| fig.height: 4
+#| fig.height: 8
 #| fig.align: center
 #| out.width: 70%
-#| fig.cap: Visualization of model metrics based on threshold, with vertical lines representing the maximum sensitivity and j-index.
+#| fig.cap: Visualization of logistic regression model metrics based on threshold, with vertical lines representing the maximum sensitivity at threshold = 0.9886 and maximum j-index at threshold = 0.10.
 #| dev: "png"
 #| dpi: 100
 # display threshold metric plot for logistic regression
 threshold_metric_plot(logreg_preds)
 ```
 
-```{r logreg-final-metrics}
-# display metrics on test and training set
+Figure 2 shows the metrics of the logistic regression based on threshold. The threshold that maximizes sensitivity is 0.01. The threshold that maximized j-index is 0.1. Since the plot shows that sensitivity is not too affected at threshold levels below 0.1, and j-index is significantly affected at lower levels, we choose 0.1 as the threshold for this model.
 
+```{r logreg-final-metrics}
+# display metrics
+logreg_threshold_metrics
 ```
+
+> talk about the metrics here
+
+
+
+```{r logreg-cm}
+# confusion matrix for logistic regression with threshold = 0.01
+conf_mat(logreg_threshold_preds, truth = Class, estimate = .pred_class)
+```
+
+
 
 ## Penalized Logistic Regression Model
 
+```{r penalized-logistic-regression}
+# define and execute cross validation workflow for logistic regression
 
-Set up the penalized logistic regression model that will be tuned on both a penalty factor and a mixture for the model. Penalty parameter was experimented with until a range where the drop off was near the middle of the chart could be chosen.
+pen_spec <- logistic_reg(engine = "glmnet",
+                         mode = "classification",
+                         penalty = parsnip::tune(),
+                         mixture= parsnip::tune())
 
-```{r Model_Tuning_Logistic_Penalized}
-
-tune_logreg_spec <- logistic_reg(engine="glmnet", mode="classification",
-                                 penalty = tune(), mixture= tune())
-
-tune_logreg_wf <- workflow() %>% 
+pen_wf <- workflow() %>% 
   add_recipe(rec) %>% 
-  add_model(tune_logreg_spec)
+  add_model(pen_spec)
 
-logreg_params <- extract_parameter_set_dials(tune_logreg_wf) %>% 
-  update(
-    penalty=penalty(c(-20,-1)),
-    mixture=mixture(c(0,1))
+pen_params <- extract_parameter_set_dials(pen_wf) %>% 
+  update(penalty = penalty(c(-20, -1)),
+         mixture = mixture(c(0, 1))
   )
+
+pen_tune <- tune_grid(pen_wf,
+                      resamples = resamples,
+                      control = cv_control,
+                      grid = grid_latin_hypercube(pen_params, size = 50))
+
+best_params_logreg <- select_best(pen_tune, metric = "roc_auc")
+
+
+# collect predictions and roc_auc from cross-validated fit
+
+
+# collect metrics for finalized model
+
+
+# finalize workflow and collect metrics
+
+
 ```
 
-Run the model across the cross validation folds and extract the three best versions of the model using the roc_auc as a metric of evaluation. We note that the best models tend to have a lower mixture (closer to a ridge regression penalty) and a low penalty negative penalty value for lambda. We note a drop off for regularization around -5, and fairly even lasso penalty after .1 with sporadic models under performing across the range.
-
-```{r Cross_Validation_Tuned_Model_Logistic_Penalized}
-
-tune_results_logreg <- tune_grid(tune_logreg_wf,
-                                 resamples=resamples,
-                                 control=cv_control,
-                                 grid=grid_latin_hypercube(logreg_params, size=50))
-show_best(tune_results_logreg, metric="roc_auc", n=3)
+```{r}
+pen_model <- pen_wf %>% 
+  finalize_workflow(select_best(pen_tune, metric="roc_auc")) %>% 
+  fit(train)
 ```
 
-```{r plot_grid_results_Logistic_Penalized}
-autoplot(tune_results_logreg)
-```
-Showing the metrics of the logistic regression model and comparing the roc_auc of the model to the penalized logistic regression model.
 
-```{r tuned_parameter_selection}
 
-best_params_logreg <- show_best(tune_results_logreg, metric="roc_auc")
 
-roc_cv_plot_tune <- function(cv_predictions, model_name){
-  cv_ROC <- cv_predictions %>% roc_curve(truth=Class, .pred_Tarp, event_level="second")
-  autoplot(cv_ROC) +
-    labs(title=model_name)
-}
+We set up the penalized logistic regression model that will be tuned on both a penalty factor and a mixture for the model. We experimented with the penalty parameter to find a range that included the lowest possible RMSE. Figure 3 shows how the ROC AUC responds to different levels of mixture and penalty. We note a drop off in RMSE for around penalty less than -5, and fairly even lasso penalty after .1 with sporadic models under performing across the range.
 
-g1 <- roc_cv_plot(logreg_cv, "Logistic regression")
-g1_tuned <- collect_predictions(tune_results_logreg,
-                                parameters=best_params_logreg, summarize=TRUE) %>% 
-  roc_cv_plot_tune("Logistic Regression Tuned")
-g1/g1_tuned
+```{r figure-3}
+#| fig.width: 9
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Visualization of ROC AUC based on penalty and mixture.
+#| dev: "png"
+#| dpi: 100
+# visualize roc_auc based on mixture and penalty
+autoplot(pen_tune)$roc_auc
 ```
 
-Fit the penalized logistic regression model and showcase the final performance metrics of the logistic regression model vs the penalized logistic regression model. When examining the performance of the two models we note that the logistic regression model seems to perform better over the penalized logistic regression model.
+
+Using cross-validation, the three best versions of the model were extracted based on ROC AUC, shown below. All three of the best models have a low mixture (closer to a ridge regression) and a low penalty.
+
+>so what? what does that mean? Are we going to select_best or select_by_one_std_err? Why?
+
+```{r best-pen-models}
+# display best parameters and metrics for penalized logistic regression
+show_best(pen_tune, metric = 'roc_auc', n = 3)
+```
+
+
+
 
 ```{r Finalize_the_models}
 
-tuned_logreg_model <- tune_logreg_wf %>% 
-  finalize_workflow(select_best(tune_results_logreg, metric="roc_auc")) %>% 
-  fit(train)
 
-tuned_logreg_model_cv <- tune_logreg_wf %>% 
-  finalize_workflow(select_best(tune_results_logreg, metric="roc_auc")) %>% 
-  fit_resamples(resamples, metrics=metric_evals, control=cv_control)
 
 cv_metrics <- bind_rows(
   collect_metrics(logreg_cv) %>%
     mutate(model="Logistic regression untuned"),
-  show_best(tune_results_logreg, metric="roc_auc", 1) %>%
+  show_best(pen_tune, metric="roc_auc", 1) %>%
     mutate(model="Logistic regression tuned"),
   
 )
@@ -323,7 +364,7 @@ ggplot(cv_metrics, aes(x=mean, y=model, xmin=mean-std_err, xmax=mean+std_err))+
 bind_rows(
   roc_auc(augment(logreg_untuned_model, test), Class, .pred_Tarp, event_level="second") %>%
     mutate(model="logreg untuned"),
-  roc_auc(augment(tuned_logreg_model, test), Class, .pred_Tarp, event_level="second") %>%
+  roc_auc(augment(pen_model, test), Class, .pred_Tarp, event_level="second") %>%
     mutate(model="logreg tuned"),
 ) %>%
 ggplot(aes(x=.estimate, y=model)) +
@@ -336,7 +377,7 @@ ggplot(aes(x=.estimate, y=model)) +
 ```{r logistic-cm}
 
 log_preds <- collect_predictions(logreg_cv)
-penalized_log_preds <- collect_predictions(tuned_logreg_model_cv) 
+penalized_log_preds <- collect_predictions(pen_model_cv) 
 ```
 
 ```{r log_threshold}
@@ -397,30 +438,30 @@ The confusion matrix when the thresholds are set to maximizing the sensitivity f
 
 # Confusion Matrices for the Logistic Regression Models
 log_preds <- log_preds %>% 
-  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.01, 'Tarp', 'Other')))
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.01, 'Tarp', 'Non-Tarp')))
 conf_mat(log_preds, truth = Class, estimate = .pred_class)
 
 log_preds <- log_preds %>% 
-  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.5, 'Tarp', 'Other')))
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.5, 'Tarp', 'Non-Tarp')))
 conf_mat(log_preds, truth = Class, estimate = .pred_class)
 
 log_preds <- log_preds %>% 
-  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.04, 'Tarp', 'Other')))
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.04, 'Tarp', 'Non-Tarp')))
 conf_mat(log_preds, truth = Class, estimate = .pred_class)
 
 writeLines("\n\n")
 
 # Confusion Matrices for the penalized logistic regresion models
 penalized_log_preds <- penalized_log_preds %>% 
-  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.01, 'Tarp', 'Other')))
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.01, 'Tarp', 'Non-Tarp')))
 conf_mat(penalized_log_preds, truth = Class, estimate = .pred_class)
 
 penalized_log_preds <- penalized_log_preds %>% 
-  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.5, 'Tarp', 'Other')))
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.5, 'Tarp', 'Non-Tarp')))
 conf_mat(penalized_log_preds, truth = Class, estimate = .pred_class)
 
 penalized_log_preds <- penalized_log_preds %>% 
-  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.05, 'Tarp', 'Other')))
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.05, 'Tarp', 'Non-Tarp')))
 conf_mat(penalized_log_preds, truth = Class, estimate = .pred_class)
 
 
@@ -443,7 +484,7 @@ pen_log_train_metrics <- penalized_log_preds %>%
 log_test_metrics <- parsnip::augment(logreg_untuned_model, new_data = test) %>% 
   get_metrics(truth = Class, estimate = .pred_class)
 
-pen_log_test_metrics <- parsnip::augment(tuned_logreg_model, new_data = test) %>% 
+pen_log_test_metrics <- parsnip::augment(pen_model, new_data = test) %>% 
   get_metrics(truth = Class, estimate = .pred_class)
 
 ```
