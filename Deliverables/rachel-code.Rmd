@@ -1,375 +1,187 @@
+---
 
-```{r hide-code, include=FALSE}
-knitr::opts_chunk$set(echo=FALSE)
-```
-
-
-```{r load-packages}
-#| message: FALSE
+```{r r-setup, include = FALSE, cache = FALSE}
+knitr::opts_chunk$set(cache = TRUE,
+                      autodep = TRUE,
+                      message = FALSE,
+                      warning = FALSE)
 library(tidyverse)
 library(tidymodels)
 library(ggcorrplot)
 library(GGally)
-library(patchwork)
 library(discrim)
-```
-
-
-
-```{r load_data}
-
-data <- read_csv("https://gedeck.github.io/DS-6030/project/HaitiPixels.csv")
-data %>% glimpse()
-data %>% summary()
-```
-
-
-```{r transform-data}
-data <- data %>% 
-  mutate(Class = as.factor(Class))
-
-```
-
-
-```{r check for missing values}
-sum(is.na(data))
-```
-
-It is important to check for missing values as they can impact the resulting data and the ability to train and validate out models. Sometimes it is important also to check for and remove duplicates, but within this context the target tarps may have duplicate red, green, and blue values so we don't want to remove those.
-
-
-```{r Check corr}
-corr <- data%>%
-select(where(is.numeric)) %>%
-cor()
-ggcorrplot(corr)
-```
-This correlation heat map reveals that the predictor variables are highly correlated. This makes sense for  images as each pixel will be related to the one next to it in someway.
-
-
-```{r EDA_Boxplots}
-#| fig.width: 8
-#| fig.height: 8
-#| fig.align: center
-#| out.width: 75%
-g1_box <- ggplot(data, aes(x=Class, y=Red))+
-  geom_boxplot()+
-  labs(title= "Boxplots of Red Pixel Value by Class")
-
-g2_box <- ggplot(data, aes(x=Class, y=Green))+
-  geom_boxplot()+
-  labs(title= "Boxplots of Green Pixel Value by Class")
-
-g3_box <- ggplot(data, aes(x=Class, y=Blue))+
-  geom_boxplot()+
-  labs(title= "Boxplots of Blue Pixel Value by Class")
-
-g1_box/g2_box/g3_box
-
-```
-
-```{r EDA_Countplot_Class}
-
-ggplot(data, aes(Class))+
-  geom_bar()+
-  labs(title= "Count Plot of Class", x="Count")
-
-```
-
-```{r EDA_Density}
-#| fig.width: 8
-#| fig.height: 8
-#| fig.align: center
-#| out.width: 75%
-g1_dense <- ggplot(data, aes(Red))+
-  geom_density()+
-  labs(title="Density Plot of Red")
-
-g2_dense <- ggplot(data, aes(Green))+
-  geom_density()+
-  labs(title="Density Plot of Green")
-
-g3_dense <- ggplot(data, aes(Blue))+
-  geom_density()+
-  labs(title="Density Plot of Blue")
-
-g1_dense/g2_dense/g3_dense
-```
-
-
-
-```{r EDA_Corrplot}
-#| fig.width: 6
-#| fig.height: 6
-#| fig.align: center
-#| out.width: 75%
-data %>% 
-  ggpairs(aes(alpha=0.1), progress= FALSE)
-```
-
-
-
-
-
-- Boxplots of each class and their color pixel values - might give us more information about what the different classes will look like
-
-*Will add more comments here
-
-```{r}
-
-#| fig.width: 8
-#| fig.height: 8
-#| fig.align: center
-#| out.width: 75%
-
-veg <- filter(data, Class == "Vegetation") 
-
-g1_vegbar <- ggplot(veg, aes(x = Red))+
-  geom_bar()+
-  labs(title= "Range of Red Pixels in Vegetation", y="Count", x = "Red Intensity")
-
-g2_vegbar <- ggplot(veg, aes(x = Green))+
-  geom_bar()+
-  labs(title= "Range of Green Pixels in Vegetation", y="Count", x = "Green Intensity")
-
-g3_vegbar <- ggplot(veg, aes(x = Blue))+
-  geom_bar()+
-  labs(title= "Range of Blue Pixels in Vegetation", y="Count", x = "Blue Intensity")
-
-g1_vegbar/g2_vegbar/g3_vegbar
-```
-
-
-
-```{r}
-soil <- filter(data, Class == "Soil") 
-
-g1_bar <- ggplot(soil, aes(x = Red))+
-  geom_bar()+
-  labs(title= "Range of Red Pixels in Soil", y="Count", x = "Red Intensity")
-
-g2_bar <- ggplot(soil, aes(x = Green))+
-  geom_bar()+
-  labs(title= "Range of Green Pixels in Soil", y="Count", x = "Green Intensity")
-
-g3_bar <- ggplot(soil, aes(x = Blue))+
-  geom_bar()+
-  labs(title= "Range of Blue Pixels in Soil", y="Count", x = "Blue Intensity")
-
-g1_bar/g2_bar/g3_bar
-```
-
-
-
-
-
-```{r}
-rooftop <- filter(data, Class == "Rooftop") 
-
-g1_bar <- ggplot(rooftop, aes(x = Red))+
-  geom_bar()+
-  labs(title= "Range of Red Pixels on Rooftop", y="Count", x = "Red Intensity")
-
-g2_bar <- ggplot(rooftop, aes(x = Green))+
-  geom_bar()+
-  labs(title= "Range of Green Pixels on Rooftop", y="Count", x = "Green Intensity")
-
-g3_bar <- ggplot(rooftop, aes(x = Blue))+
-  geom_bar()+
-  labs(title= "Range of Blue Pixels on Rooftop", y="Count", x = "Blue Intensity")
-
-g1_bar/g2_bar/g3_bar
-```
-
-
-```{r}
-bluetarp <- filter(data, Class == "Blue Tarp") 
-
-g1_bar <- ggplot(bluetarp, aes(x = Red))+
-  geom_bar()+
-  labs(title= "Range of Red Pixels on Blue Tarp", y="Count", x = "Red Intensity")
-
-g2_bar <- ggplot(bluetarp, aes(x = Green))+
-  geom_bar()+
-  labs(title= "Range of Green Pixels on Blue Tarp", y="Count", x = "Green Intensity")
-
-g3_bar <- ggplot(bluetarp
-                 , aes(x = Blue))+
-  geom_bar()+
-  labs(title= "Range of Blue Pixels on Blue Tarp", y="Count", x = "Blue Intensity")
-
-g1_bar/g2_bar/g3_bar 
-```
-
-
-
-```{r}
-various <- filter(data, Class == "Various Non-Tarp") 
-
-g1_bar <- ggplot(various, aes(x = Red))+
-  geom_bar()+
-  labs(title= "Range of Red Pixels on Various Non-Tarp", y="Count", x = "Red Intensity")
-
-g2_bar <- ggplot(bluetarp, aes(x = Green))+
-  geom_bar()+
-  labs(title= "Range of Green Pixels on Various Non-Tarp", y="Count", x = "Green Intensity")
-
-g3_bar <- ggplot(bluetarp
-                 , aes(x = Blue))+
-  geom_bar()+
-  labs(title= "Range of Blue Pixels on Various Non-Tarp", y="Count", x = "Blue Intensity")
-
-g1_bar/g2_bar/g3_bar 
-```
-
-```{r}
-data <- data %>% 
-  mutate(
-    Class = factor(ifelse(Class== "Blue Tarp", "Tarp", "Other")))
-```
-
-
-## LDA Model
-
-```{r Parallel processing}
+library(patchwork)
 library(doParallel)
 cl <- makePSOCKcluster(parallel::detectCores(logical = FALSE))
 registerDoParallel(cl)
 ```
 
-```{r Split data}
-set.seed(1)
-data_split <- initial_split(data, prop=.8, strata=Class)
-train <- training(data_split)
-test <- testing(data_split)
+```{r load-data, warning = FALSE, message = FALSE}
+data <- read_csv("https://gedeck.github.io/DS-6030/project/HaitiPixels.csv") %>% 
+  mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
 ```
 
-```{r Specify model}
-#| cache: TRUE
 
+```{r convenience-functions}
+# define functions to use later for convenience
+cv_control <- control_resamples(save_pred = TRUE)
+
+roc_plot <- function(model_preds) {
+  model_preds %>% 
+    roc_curve(truth = Class,
+              .pred_Tarp,
+              event_level = 'second') %>% 
+    autoplot()
+}
+
+threshold_metric_plot <- function(thresh_perf, max_sens, max_j) {
+  ggplot(thresh_perf, aes(x = .threshold, y = .estimate, color = .metric)) +
+    geom_line() +
+    geom_vline(data = max_sens, aes(xintercept = .threshold, color = .metric)) +
+    geom_vline(data = max_j, aes(xintercept = .threshold, color = .metric)) +
+    scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+    labs(x = 'Threshold', y = 'Metric value')
+}
+
+threshold_metrics <- metric_set(j_index,
+                                specificity,
+                                sensitivity,
+                                accuracy,
+                                precision)
+
+
+threshold_preds <- function(preds, threshold) {
+    preds <- preds %>% 
+    mutate(.pred_class = factor(ifelse(.pred_Tarp >= threshold, 'Tarp', 'Non-Tarp')))
+}
+
+```
+
+```{r model-setup}
+# prepare resamples for 10-fold cross-validation
+set.seed(6030)
+resamples <- vfold_cv(data, v = 10, strata=Class)
+
+# define formula
 formula <- Class ~ Red + Green + Blue
-data_recipe <- recipe(formula, data = train) %>% 
-  step_pca(all_numeric_predictors(), num_comp = parsnip::tune()) ######## !!!!
+
+# define basic recipe
+rec <- recipe(formula, data = data)
+```
+
+
+# Linear Discriminant Analysis
+
+```{r lda}
+# define model spec
 lda_spec <- discrim_linear(mode = "classification") %>% 
   set_engine('MASS')
-```
 
-```{r workflow}
-#| cache: TRUE
+# define workflow
 lda_wf <- workflow() %>% 
-  add_recipe(data_recipe) %>% 
+  add_recipe(rec) %>% 
   add_model(lda_spec)
+
+
+#fit resamples
+lda_fitcv <- fit_resamples(lda_wf, resamples,  control=cv_control)
+
+# collect predictions and roc_auc from cross-validated fit
+lda_preds <-  collect_predictions(lda_fitcv)
+lda_metrics <- collect_metrics(lda_fitcv)
+#will just talk about ROC in write up without graph/listed metrics
+
+# get threshold selection info
+lda_thresh_perf <- probably::threshold_perf(lda_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = metric_set(j_index,
+                                                                 specificity,
+                                                                 sensitivity,
+                                                                 accuracy))
+
+# get threshold for best sensitivity
+lda_max_sens <- lda_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+lda_max_j <- lda_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+lda_tmetrics_plot <- threshold_metric_plot(lda_thresh_perf, lda_max_sens, lda_max_j)
+
+# get predictions and metrics based on chosen threshold
+lda_threshold_preds <- lda_preds %>% 
+ mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.01, 'Tarp', 'Non-Tarp')))
+
+lda_threshold_metrics <- threshold_metrics(lda_threshold_preds, truth = Class, estimate = .pred_class)
+lda_threshold_metrics
+
+# get confusion matrix for chosen threshold
+lda_cm <- conf_mat(lda_threshold_preds, truth = Class, estimate = .pred_class)
+
 ```
 
-```{r CV and metrics}
-resamples <- vfold_cv(train, v=10, strata=Class)
-metrics <- metric_set(roc_auc, accuracy,j_index,specificity,sensitivity)
-cv_control <- control_resamples(save_pred=TRUE)
 
-lda_cv <- fit_resamples(lda_wf, resamples, metrics=metrics, control=cv_control)
-collect_metrics(lda_cv)
-```
+# Quadratic Discriminant Analysis
 
-```{r ROC}
-roc_cv_plot <- function(model_cv, model_name) {
-  cv_predictions <- collect_predictions(model_cv)
-  cv_ROC <- cv_predictions %>%
-    roc_curve(truth=Class, .pred_Tarp, event_level="second")
-  autoplot(cv_ROC) +
-    labs(title=model_name)
-}
-roc_lda <- roc_cv_plot(lda_cv, "LDA")
-roc_lda
-```
-
-```{r}
-threshold_graph <- function(model_cv, model_name) {
-  performance <- probably::threshold_perf(collect_predictions(model_cv), Class, .pred_Tarp,
-    thresholds=seq(0.05, 0.95, 0.01), event_level="second",
-    metrics=metric_set(j_index, accuracy,sensitivity,specificity))
-  max_metrics <- performance %>%
-    group_by(.metric) %>%
-    filter(.estimate == max(.estimate))
-  ggplot(performance, aes(x=.threshold, y=.estimate, color=.metric)) +
-    geom_line() +
-    geom_point(data=max_metrics, color="black") +
-    labs(x="Threshold", y="Metric value") +
-    coord_cartesian(ylim=c(0, 1.0))
-}
-threshold_lda <- threshold_graph(lda_cv, "LDA")
-threshold_lda
-```
-Lower threshold better since we want sensitivity to be higher. Want false positive to be closer to zero so it would be good for j-index to be higher also.
-
-
-##QDA
-
-```{r Specify QDA model}
-#| cache: TRUE
-
-formula <- Class ~ Red + Green + Blue
-data_recipe <- recipe(formula, data = train)
+```{r qda}
+# define model spec
 qda_spec <- discrim_quad(mode = "classification") %>% 
   set_engine('MASS')
-```
 
-```{r workflow}
-#| cache: TRUE
+# define workflow
 qda_wf <- workflow() %>% 
-  add_recipe(data_recipe) %>% 
+  add_recipe(rec) %>% 
   add_model(qda_spec)
 
+
+#fit resamples
+qda_fitcv <- fit_resamples(qda_wf, resamples,  control=cv_control)
+
+# collect predictions and roc_auc from cross-validated fit
+qda_preds <-  collect_predictions(qda_fitcv)
+qda_metrics <- collect_metrics(qda_fitcv)
+#will just talk about ROC in write up without graph/listed metrics
+
+# get threshold selection info
+qda_thresh_perf <- probably::threshold_perf(qda_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = metric_set(j_index,
+                                                                 specificity,
+                                                                 sensitivity,
+                                                                 accuracy))
+
+# get threshold for best sensitivity
+qda_max_sens <- qda_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+qda_max_j <- qda_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+qda_tmetrics_plot <- threshold_metric_plot(qda_thresh_perf, qda_max_sens, qda_max_j)
+
+
+# get predictions and metrics based on chosen threshold
+qda_threshold_preds <- qda_preds %>% 
+ mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.01, 'Tarp', 'Non-Tarp')))
+
+qda_threshold_metrics <- threshold_metrics(qda_threshold_preds, truth = Class, estimate = .pred_class)
+
+
+# get confusion matrix for chosen threshold
+qda_cm <- conf_mat(qda_threshold_preds, truth = Class, estimate = .pred_class)
 ```
-
-```{r CV and metrics}
-resamples <- vfold_cv(train, v=10, strata=Class)
-metrics <- metric_set(roc_auc, accuracy,j_index,specificity,sensitivity)
-cv_control <- control_resamples(save_pred=TRUE)
-
-qda_cv <- fit_resamples(qda_wf, resamples, metrics=metrics, control=cv_control)
-collect_metrics(qda_cv)
-```
-
-
-```{r ROC}
-roc_cv_plot <- function(model_cv, model_name) {
-  cv_predictions <- collect_predictions(model_cv)
-  cv_ROC <- cv_predictions %>%
-    roc_curve(truth=Class, .pred_Tarp, event_level="second")
-  autoplot(cv_ROC) +
-    labs(title=model_name)
-}
-roc_qda <- roc_cv_plot(qda_cv, "QDA")
-roc_qda
-```
-
-```{r}
-threshold_qda <- threshold_graph(qda_cv, "QDA")
-threshold_qda
-```
-
-```{r}
-roc_qda + roc_lda
-```
-```{r}
-
-cv_metrics <- bind_rows(
-collect_metrics(lda_cv) %>% mutate(model="LDA"),
-collect_metrics(qda_cv) %>% mutate(model="QDA"),
-)
-
-ggplot(cv_metrics, aes(x=mean, y=model, xmin=mean-std_err, xmax=mean+std_err)) +
-  geom_point() +
-  geom_linerange() +
-  facet_wrap(~ .metric)
-```
-
-
- 
-
-```{r End parallel processing}
-stopCluster(cl)
-registerDoSEQ()
-```
-
 
