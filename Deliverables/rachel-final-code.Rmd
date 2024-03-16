@@ -14,6 +14,17 @@ knitr::opts_chunk$set(echo=FALSE)
 ```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
 ```
 
+## Intro
+
+The 2010 earthquake in Haiti was a devastating natural disaster that caused extreme damaged and displaced millions of people. After this disaster, the rescue workers needed to deliver food, water, and other resources to the people of Haiti, but it was challenging locating the people in need over this large area. These challenges included roads blocked by rubble and the inability to communicate as traditional lines of communication were destroyed by the earthquake. The rescue workers needed to find another strategy other than physically looking for them on land to locate and reach these displaced persons quickly and more efficiently. 
+
+ 
+
+The people of Haiti who were displaced by the earthquake were using blue tarps as temporary shelter. This knowledge was utilized to locate these people after imagery was collected by aircraft flown by a rescue team from the Rochester Institute of Technology. Blue tarps could be searched for within these images by the rescue team who would then go to these coordinates and find them. However, that strategy would have been too slow, and resources would not have been delivered in time. A different strategy that could be used to more efficiently locate people in need of resources was to continue to use these images but instead use data-mining algorithms to search these images. 
+
+ 
+
+This report explores various classification methods that could be useful in locating these blue tarps within the imagery taken by aircraft. The algorithms tested and explored include those that utilize Logistic Regression, Linear Discriminant Analysis, Quadratic Discriminant Analysis, K-nearest Neighbors, and Penalized Logistic Regression. We expect at least one of these methods to work more efficiently and more accurately than human efforts as these algorithms can handle more data, perform complex operations, and potentially fit to the patterns of the data to identify the blue tarps. The chosen algorithm may be less likely to miss as many blue tarps as a human would, and it is critical to identify that algorithm that will perform the best. This is an important data-mining problem that could have a large impact on human life. This report will identify the algorithm that most accurately and most efficiently identifies these blue tarps so that the displaced persons in Haiti in need of resources can receive them on time. 
 
 
 ```{r load-packages}
