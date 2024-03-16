@@ -5,13 +5,11 @@ date: "2024-03-16"
 output: pdf_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-
-```{r setup, include = FALSE}
-knitr::opts_chunk$set(cahce = TRUE, autodep = TRUE)
+```{r r-setup, include = FALSE, cache = FALSE}
+knitr::opts_chunk$set(cache = TRUE,
+                      autodep = TRUE,
+                      message = FALSE,
+                      warning = FALSE)
 library(tidyverse)
 library(tidymodels)
 library(ggcorrplot)
@@ -32,7 +30,7 @@ registerDoParallel(cl)
 
 # Section 2: Data
 
-```{r load-data}
+```{r load-data, warning = FALSE, message = FALSE}
 # load data from file
 # file = "https://gedeck.github.io/DS-6030/project/HaitiPixels.csv"
 file = '../data.csv'
@@ -91,77 +89,154 @@ From Becky: be sure to mention we did a 20-80 test-training split with stratifie
 
 
 
-```{r prepare-resamples}
-set.seed(1)
 
-data_split <- initial_split(data, prop=.8, strata=Class)
+
+```{r convenience-functions}
+# define variables and functions to use later for convenience
+auc_metric <- metric_set(roc_auc)
+
+cv_control <- control_resamples(save_pred = TRUE)
+
+roc_plot <- function(model_fitcv) {
+  model_fitcv %>% 
+    collect_predictions() %>% 
+    roc_curve(truth = Class,
+              .pred_Tarp,
+              event_level = 'second') %>% 
+    autoplot()
+}
+
+threshold_metric_plot <- function(model_preds) {
+  
+  thresh_perf <- probably::threshold_perf(model_preds,
+                                          Class,
+                                          .pred_Tarp,
+                                          thresholds = seq(0.01, 0.99, 0.01),
+                                          event_level = 'second',
+                                          metrics = threshold_metrics)
+
+  max_sens <- thresh_perf %>% 
+    filter(.metric == 'sensitivity') %>% 
+    filter(.estimate == max(.estimate))
+
+  max_j <- thresh_perf %>% 
+    filter(.metric == 'j_index') %>% 
+    filter(.estimate == max(.estimate))
+
+  ggplot(thresh_perf, aes(x = .threshold, y = .estimate, color = .metric)) +
+    geom_line() +
+    geom_vline(data = max_sens, aes(xintercept = .threshold, color = .metric)) +
+    geom_vline(data = max_j, aes(xintercept = .threshold, color = .metric)) +
+    scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+    labs(x = 'Threshold', y = 'Metric value')
+}
+
+threshold_metrics <- metric_set(j_index,
+                                specificity,
+                                sensitivity,
+                                accuracy)
+
+get_metrics <- function(final_model, data) {
+  threshold_metrics(parsnip::augment(final_model, data),
+                    truth = Class,
+                    estimate = .pred_class)
+}
+
+metric_table <- function(final_model) {
+  bind_rows(get_metrics(final_model, train) %>% 
+              mutate(data = 'train'),
+            get_metrics(final_model, test) %>% 
+              mutate(data = 'test')
+            ) %>% 
+    pivot_wider(id_cols = data,
+                names_from = .metric,
+                values_from = .estimate) %>% 
+    mutate(difference = test - train)
+}
+
+```
+
+
+```{r model-setup}
+# split data into training-test sets
+set.seed(1)
+data_split <- initial_split(data, prop = .8, strata = Class)
 train <- training(data_split)
 test <- testing(data_split)
 
+# prepare resamples for 10-fold cross-validation
 resamples <- vfold_cv(train, v=10, strata=Class)
 
+# define formula
+formula <- Class ~ Red + Green + Blue
+
+# define basic recipe
+rec <- recipe(formula, data = train)
 ```
 
 
 ## Section 4.1: Logistic Regression Model
 
 
-
-The logistic regression model is defined in the set of code below with a recipe and engine fit into the workflow.
-
-```{r Create_Model}
-
-formula <- Class ~ Red + Green + Blue
-
-rec <- recipe(formula, data=train)
-
-logreg_spec <- logistic_reg(engine="glm", mode="classification")
+```{r logreg, warning = FALSE, message = FALSE}
+# define and execute cross validation workflow for logistic regression
+logreg_spec <- logistic_reg(engine = "glm",
+                            mode = "classification")
 
 logreg_wf <- workflow() %>% 
   add_recipe(rec) %>% 
   add_model(logreg_spec)
 
+logreg_fitcv <- logreg_wf %>% 
+  fit_resamples(resamples,
+                control = cv_control)
+
+# collect metrics and predictions from cross-validated fit
+logreg_cv_metrics <- collect_metrics(logreg_fitcv) %>% 
+  dplyr::select(c(.metric, mean))
+
+logreg_preds <- collect_predictions(logreg_fitcv)
+
+# collect metrics for finalized model
+logreg_final <- logreg_wf %>% 
+  fit(train)
+
+logreg_train_metrics <- get_metrics(logreg_final, train)
+logreg_test_metrics <- get_metrics(logreg_final, test)
 ```
 
-To evaluate across models and tuning parameters a 10 fold cross-validation will be used for model performance. The code below saves the arguments as variables for fitting the resamples that will be used as the CV folds in the model evaluation.
+The first model investigated by this report is a simple logistic regression with no penalty. Following the methodology specified, the model was defined and resamples were fitted to find the roc_auc.
 
-```{r Cross_Validation_Logistic}
-
-metric_evals <- metric_set(roc_auc)
-cv_control <- control_resamples(save_pred = TRUE)
-
-logreg_cv <- fit_resamples(logreg_wf, resamples, metrics=metric_evals, control=cv_control)
+```{r figure-1}
+#| fig.width: 9
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Plot of ROC curve for the logistic regression model with no penalty. The AUC is 0.9976.
+#| dev: "png"
+#| dpi: 100
+# display logreg ROC curve
+roc_plot(logreg_fitcv)
 ```
 
-This code block evaluates the metrics from fitting the cross fold models using both accuracy and the roc_auc. We note a very high score within the roc_auc and a similarly high value within the accuracy. Below we also plot a ROC_AUC curve to evaluate the performance of the models visually.
+We note a very high area under the curve (AUC) of **0.9976**, indicating a very effective model. Figure 1 shows the corresponding receiver operating characteristic (ROC) curve to demonstrate the performance of the model. From the visualization, it is clear that the model performs well. To optimize its predictive capability, we now investigate further to choose a threshold.
 
-```{r Metrics_logistic}
 
-cv_metrics <- bind_rows(
-  collect_metrics(logreg_cv) %>% mutate(model="Logistic Regression")
-)
-
-#ggplot(cv_metrics, aes(x=mean, y=model, xmin=mean-std_err, xmax=mean+std_err))+
- # geom_point()+
-  #geom_linerange()+
-  #facet_wrap(~ .metric)
-cv_metrics
+```{r figure-2}
+#| fig.width:8
+#| fig.height: 4
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Visualization of model metrics based on threshold, with vertical lines representing the maximum sensitivity and j-index.
+#| dev: "png"
+#| dpi: 100
+# display threshold metric plot for logistic regression
+threshold_metric_plot(logreg_preds)
 ```
-```{r ROC_AUC_Curves_Logistic}
 
-roc_cv_plot <- function(model_cv, model_name) {
-  cv_predictions <-collect_predictions(model_cv)
-  cv_ROC <- cv_predictions %>% roc_curve(truth=Class, .pred_Tarp, event_level="second")
-  autoplot(cv_ROC) +
-    labs(title=model_name)
-}
-g1 <- roc_cv_plot(logreg_cv, "Logistic regresson")
-g1
+```{r logreg-final-metrics}
+# display metrics on test and training set
 
-```
- We fit the untuned version of the model to compare against a penalized model.
-```{r fit_model_before_tuning_logistic}
-logreg_untuned_model <- logreg_wf %>% fit(train)
 ```
 
 ## Penalized Logistic Regression Model
@@ -265,15 +340,7 @@ penalized_log_preds <- collect_predictions(tuned_logreg_model_cv)
 ```
 
 ```{r log_threshold}
-log_thres_perf <- probably::threshold_perf(log_preds,
-                                           Class,
-                                           .pred_Tarp,
-                                           threshold=seq(0.01,0.99,0.01),
-                                           event_level= "second",
-                                           metrics= metric_set(j_index,
-                                                               specificity,
-                                                               sensitivity,
-                                                               accuracy))
+
 
 penal_log_thres_perf <- probably::threshold_perf(penalized_log_preds,
                                            Class,
@@ -441,4 +508,6 @@ Make sure that the 3 conclusions are clearly separated.
 # Appendix
 
 ```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+stopCluster(cl)
+registerDoSEQ()
 ```
