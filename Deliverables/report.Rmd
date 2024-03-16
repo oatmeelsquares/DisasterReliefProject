@@ -103,40 +103,20 @@ roc_plot <- function(model_preds) {
     autoplot()
 }
 
-threshold_metric_plot <- function(model_preds) {
-  
-  thresh_perf <- probably::threshold_perf(model_preds,
-                                          Class,
-                                          .pred_Tarp,
-                                          thresholds = seq(0.01, 0.99, 0.01),
-                                          event_level = 'second',
-                                          metrics = threshold_metrics)
-
-  max_sens <- thresh_perf %>% 
-    filter(.metric == 'sensitivity') %>% 
-    filter(.estimate == max(.estimate))
-
-  max_j <- thresh_perf %>% 
-    filter(.metric == 'j_index') %>% 
-    filter(.estimate == max(.estimate))
-
+threshold_metric_plot <- function(thresh_perf, max_sens, max_j) {
   ggplot(thresh_perf, aes(x = .threshold, y = .estimate, color = .metric)) +
     geom_line() +
     geom_vline(data = max_sens, aes(xintercept = .threshold, color = .metric)) +
     geom_vline(data = max_j, aes(xintercept = .threshold, color = .metric)) +
     scale_x_continuous(breaks = seq(0, 1, 0.1)) +
     labs(x = 'Threshold', y = 'Metric value')
-  
-  # print(bind_rows(max_sens, max_j) %>% 
-  #   pivot_wider(names_from = .metric,
-  #               values_from = .estimate)
-  # )
 }
 
 threshold_metrics <- metric_set(j_index,
                                 specificity,
                                 sensitivity,
-                                accuracy)
+                                accuracy,
+                                precision)
 
 
 threshold_preds <- function(preds, threshold) {
@@ -163,7 +143,7 @@ rec <- recipe(formula, data = data)
 ## Section 4.1: Logistic Regression Model
 
 
-```{r k-nearest-neighbors}
+```{r knn}
 # define model spec
 knn_spec <- nearest_neighbor(mode = 'classification',
                             engine = 'kknn',
@@ -171,23 +151,29 @@ knn_spec <- nearest_neighbor(mode = 'classification',
 
 # define workflow
 knn_wf <- workflow() %>% 
-  add_recipe(knn_rec) %>% 
-  add_model(knn_model)
+  add_recipe(rec) %>% 
+  add_model(knn_spec)
 
 # set tuning parameters
 knn_params <- extract_parameter_set_dials(knn_wf) %>% 
   update(neighbors = neighbors(c(2, 50)))
 
-# tune with grid
-knn_tune <- tune_grid(knn_wf,
+# tune with grid (or fit resamples)
+knn_fitcv <- tune_grid(knn_wf,
                       resamples = resamples,
                       grid = grid_regular(knn_params, levels = 49),
-                      control = control_resamples(save_pred = TRUE)
+                      control = cv_control
                       )
 
-# collect predictions and roc_auc from cross-validated fit
-knn_preds <-  collect_predictions(knn_fit)
+# get tuning results visualization
+knn_tune_vis <- autoplot(knn_fitcv)$roc_auc
 
+# collect predictions and roc_auc from cross-validated fit
+knn_preds <-  collect_predictions(knn_fitcv)
+knn_metrics <- collect_metrics(knn_fitcv)
+
+# get ROC plot
+knn_roc <- roc_plot(knn_preds)
 
 # get threshold selection info
 knn_thresh_perf <- probably::threshold_perf(knn_preds,
@@ -201,20 +187,25 @@ knn_thresh_perf <- probably::threshold_perf(knn_preds,
                                                                  accuracy))
 
 # get threshold for best sensitivity
-max_sens <- knn_thresh_perf %>% 
+knn_max_sens <- knn_thresh_perf %>% 
   filter(.metric == 'sensitivity') %>% 
   filter(.estimate == max(.estimate))
 
 # get threshold for best j-index
-max_j <- knn_thresh_perf %>% 
+knn_max_j <- knn_thresh_perf %>% 
   filter(.metric == 'j_index') %>% 
   filter(.estimate == max(.estimate))
 
-# get predictions based on chosen threshold
-knn_preds <- knn_preds %>% 
+# get threshold metrics plot
+knn_tmetrics_plot <- threshold_metric_plot(knn_thresh_perf, knn_max_sens, knn_max_j)
+
+# get predictions and metrics based on chosen threshold
+knn_threshold_preds <- knn_preds %>% 
   mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.04, 'Tarp', 'Non-Tarp')))
+knn_threshold_metrics <- threshold_merics(knn_threshold_preds)
 
-
+# get confusion matrix for chosen threshold
+knn_cm <- conf_mat(knn_threshold_preds, truth = Class, estimate = .pred_class)
 ```
 
 
@@ -238,283 +229,23 @@ roc_plot(logreg_preds)
 Figure 1 shows the corresponding ROC curve to demonstrate the performance of the model. We note a very high AUC of **0.9987**, indicating a very effective model. From the visualization and the ROC AUC metric, it is clear that the model performs well. To optimize its predictive capability, we now investigate further to choose a threshold.
 
 
-```{r }
-#| fig.width:8
-#| fig.height: 8
-#| fig.align: center
-#| out.width: 70%
-#| fig.cap: Visualization of logistic regression model metrics based on threshold, with vertical lines representing the maximum sensitivity at threshold = 0.9886 and maximum j-index at threshold = 0.10.
-#| dev: "png"
-#| dpi: 100
-# display threshold metric plot for logistic regression
-threshold_metric_plot(logreg_preds)
+
+
+
+
+
+
+
+
+
+
+```{r compare-metrics}
+compare_metrics <- bind_rows(log_threshold_metrics %>% mutate(model = 'logistic regression'),
+                             penlog_threshold_metrics %>% mutate(model = 'penalized logreg'),
+                             lda_threshold_metrics %>% mutate(model = 'LDA'),
+                             qda_threshold_metrics,
+                             knn_threshold_metrics)
 ```
-
-Figure 2 shows the metrics of the logistic regression based on threshold. The threshold that maximizes sensitivity is 0.01. The threshold that maximized j-index is 0.1. Since the plot shows that sensitivity is not too affected at threshold levels below 0.1, and j-index is significantly affected at lower levels, we choose 0.1 as the threshold for this model.
-
-```{r logreg-final-metrics}
-# display metrics
-logreg_threshold_metrics
-```
-
-> talk about the metrics here
-
-
-
-```{r logreg-cm}
-# confusion matrix for logistic regression with threshold = 0.01
-conf_mat(logreg_threshold_preds, truth = Class, estimate = .pred_class)
-```
-
-
-
-## Penalized Logistic Regression Model
-
-```{r penalized-logistic-regression}
-# define and execute cross validation workflow for logistic regression
-
-pen_spec <- logistic_reg(engine = "glmnet",
-                         mode = "classification",
-                         penalty = parsnip::tune(),
-                         mixture= parsnip::tune())
-
-pen_wf <- workflow() %>% 
-  add_recipe(rec) %>% 
-  add_model(pen_spec)
-
-pen_params <- extract_parameter_set_dials(pen_wf) %>% 
-  update(penalty = penalty(c(-20, -1)),
-         mixture = mixture(c(0, 1))
-  )
-
-pen_tune <- tune_grid(pen_wf,
-                      resamples = resamples,
-                      control = cv_control,
-                      grid = grid_latin_hypercube(pen_params, size = 50))
-
-best_params_logreg <- select_best(pen_tune, metric = "roc_auc")
-
-
-# collect predictions and roc_auc from cross-validated fit
-
-
-# collect metrics for finalized model
-
-
-# finalize workflow and collect metrics
-
-
-```
-
-```{r}
-pen_model <- pen_wf %>% 
-  finalize_workflow(select_best(pen_tune, metric="roc_auc")) %>% 
-  fit(train)
-```
-
-
-
-
-We set up the penalized logistic regression model that will be tuned on both a penalty factor and a mixture for the model. We experimented with the penalty parameter to find a range that included the lowest possible RMSE. Figure 3 shows how the ROC AUC responds to different levels of mixture and penalty. We note a drop off in RMSE for around penalty less than -5, and fairly even lasso penalty after .1 with sporadic models under performing across the range.
-
-```{r figure-3}
-#| fig.width: 9
-#| fig.height: 5
-#| fig.align: center
-#| out.width: 70%
-#| fig.cap: Visualization of ROC AUC based on penalty and mixture.
-#| dev: "png"
-#| dpi: 100
-# visualize roc_auc based on mixture and penalty
-autoplot(pen_tune)$roc_auc
-```
-
-
-Using cross-validation, the three best versions of the model were extracted based on ROC AUC, shown below. All three of the best models have a low mixture (closer to a ridge regression) and a low penalty.
-
->so what? what does that mean? Are we going to select_best or select_by_one_std_err? Why?
-
-```{r best-pen-models}
-# display best parameters and metrics for penalized logistic regression
-show_best(pen_tune, metric = 'roc_auc', n = 3)
-```
-
-
-
-
-```{r Finalize_the_models}
-
-
-
-cv_metrics <- bind_rows(
-  collect_metrics(logreg_cv) %>%
-    mutate(model="Logistic regression untuned"),
-  show_best(pen_tune, metric="roc_auc", 1) %>%
-    mutate(model="Logistic regression tuned"),
-  
-)
-ggplot(cv_metrics, aes(x=mean, y=model, xmin=mean-std_err, xmax=mean+std_err))+
-  geom_point()+
-  geom_linerange()+
-  facet_wrap(~ .metric)
-```
-
-```{r Final_ROC_AUC}
-
-bind_rows(
-  roc_auc(augment(logreg_untuned_model, test), Class, .pred_Tarp, event_level="second") %>%
-    mutate(model="logreg untuned"),
-  roc_auc(augment(pen_model, test), Class, .pred_Tarp, event_level="second") %>%
-    mutate(model="logreg tuned"),
-) %>%
-ggplot(aes(x=.estimate, y=model)) +
-  geom_point() +
-  facet_wrap(~ .metric)
-```
-
-
-
-```{r logistic-cm}
-
-log_preds <- collect_predictions(logreg_cv)
-penalized_log_preds <- collect_predictions(pen_model_cv) 
-```
-
-```{r log_threshold}
-
-
-penal_log_thres_perf <- probably::threshold_perf(penalized_log_preds,
-                                           Class,
-                                           .pred_Tarp,
-                                           threshold=seq(0.01,0.99,0.01),
-                                           event_level= "second",
-                                           metrics= metric_set(j_index,
-                                                               specificity,
-                                                               sensitivity,
-                                                               accuracy))
-```
-
-```{r log_metric_plot}
-
-max_sens_log <- log_thres_perf %>% 
-  filter(.metric == 'sensitivity') %>% 
-  filter(.estimate == max(.estimate))
-
-max_j_log <- log_thres_perf %>% 
-  filter(.metric == 'j_index') %>% 
-  filter(.estimate == max(.estimate))
-
-max_sens_pen <- penal_log_thres_perf %>% 
-  filter(.metric == 'sensitivity') %>% 
-  filter(.estimate == max(.estimate))
-
-max_j_pen <- penal_log_thres_perf %>% 
-  filter(.metric == 'j_index') %>% 
-  filter(.estimate == max(.estimate))
-  
-
-```
-
-The threshold plots for these models show that for both models when maximizing the sensitivity they share the same threshold at .01. We are interested in maximizing sensitivity as time to first response is the most important thing in disaster scenarios. For this circumstance that means that we want to set the thresholds to the .01. Additionally, while this decision does sacrifice total performance the j-index for both metrics still performs at .94 for the log model and .90 for the penalized log model reflecting a respectable score overall.
-```{r log_threshold_plots}
-
-ggplot(log_thres_perf, aes(x = .threshold, y = .estimate, color = .metric)) +
-  geom_line() +
-  geom_vline(data = max_sens_log, aes(xintercept = .threshold, color = .metric)) +
-  geom_vline(data = max_j_log, aes(xintercept = .threshold, color = .metric)) +
-  scale_x_continuous(breaks = seq(0, 1, 0.1)) +
-  labs(title= "Logistic Model",x = 'Threshold', y = 'Metric value')
-
-ggplot(log_thres_perf, aes(x = .threshold, y = .estimate, color = .metric)) +
-  geom_line() +
-  geom_vline(data = max_sens_pen, aes(xintercept = .threshold, color = .metric)) +
-  geom_vline(data = max_j_pen, aes(xintercept = .threshold, color = .metric)) +
-  scale_x_continuous(breaks = seq(0, 1, 0.1)) +
-  labs(title= "Penalized Logistic Model", x = 'Threshold', y = 'Metric value')
-
-```
-The confusion matrix when the thresholds are set to maximizing the sensitivity for both metrics results in only 12 false negatives for the base logistic model and 2 for the penalized logistic regression model. Depending on the circumstances it may be worthwhile to examine a more balanced threshold which is done by selecting the J-index max below. These would be more useful if resources are limited and the rescue team does not have the resources to full examine all options. This does however result in more false negatives with 37 and 34 respectively that could be potentially damaging to response efforts.
-```{r log_conf_matrix}
-
-# Confusion Matrices for the Logistic Regression Models
-log_preds <- log_preds %>% 
-  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.01, 'Tarp', 'Non-Tarp')))
-conf_mat(log_preds, truth = Class, estimate = .pred_class)
-
-log_preds <- log_preds %>% 
-  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.5, 'Tarp', 'Non-Tarp')))
-conf_mat(log_preds, truth = Class, estimate = .pred_class)
-
-log_preds <- log_preds %>% 
-  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.04, 'Tarp', 'Non-Tarp')))
-conf_mat(log_preds, truth = Class, estimate = .pred_class)
-
-writeLines("\n\n")
-
-# Confusion Matrices for the penalized logistic regresion models
-penalized_log_preds <- penalized_log_preds %>% 
-  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.01, 'Tarp', 'Non-Tarp')))
-conf_mat(penalized_log_preds, truth = Class, estimate = .pred_class)
-
-penalized_log_preds <- penalized_log_preds %>% 
-  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.5, 'Tarp', 'Non-Tarp')))
-conf_mat(penalized_log_preds, truth = Class, estimate = .pred_class)
-
-penalized_log_preds <- penalized_log_preds %>% 
-  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.05, 'Tarp', 'Non-Tarp')))
-conf_mat(penalized_log_preds, truth = Class, estimate = .pred_class)
-
-
-
-```
-
-```{r log_metrics_training}
-
-get_metrics <- metric_set(j_index, sensitivity, specificity, accuracy)
-
-# Get Metrics on train data
-log_train_metrics <- log_preds %>% 
-  get_metrics(truth= Class, estimate = .pred_class)
-
-pen_log_train_metrics <- penalized_log_preds %>% 
-  get_metrics(truth= Class, estimate = .pred_class)
-
-# Get Metrics on test data
-
-log_test_metrics <- parsnip::augment(logreg_untuned_model, new_data = test) %>% 
-  get_metrics(truth = Class, estimate = .pred_class)
-
-pen_log_test_metrics <- parsnip::augment(pen_model, new_data = test) %>% 
-  get_metrics(truth = Class, estimate = .pred_class)
-
-```
-
-When evaluating the final model we note that the penalized and non penalized model both have very similar scores of sensitivity of .999 with their testing sets. While the models are similar in this regard all other metrics are outperformed by the base model rather than the penalized model. While our goal should be to maximize the sensitivity going with the Logistic Regression model will allow us more flexibility when it comes to instances where we are interested in more balanced outputs. For that reason we would select the Logistic Regression model over the Penalized Logistic Regression Model as our final ideal model.
-
-```{r final_metrics_comparison}
-
-bind_rows(log_train_metrics %>% mutate(data ="Log Training"),
-          log_test_metrics %>% mutate(data = "Log Testing"),
-          pen_log_train_metrics %>% mutate(data = "Penalized Log Training"),
-          pen_log_test_metrics %>% mutate(data = "Penalized Log Testing")) %>% 
-  pivot_wider(id_cols = .metric,
-              names_from = data,
-              values_from = .estimate)
-
-
-```
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
