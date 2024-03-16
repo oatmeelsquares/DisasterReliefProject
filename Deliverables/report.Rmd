@@ -69,7 +69,7 @@ data %>% summary()
 
 >From Becky: be sure to mention we did a 20-80 test-training split with stratified sampling of Blue Tarp pixels.
 
-This model is created using RStudio with the following packages: tidyverse, tidymodels, ggcorrplot, GGally, patchwork, and doParallel. RStudio is an open-source statistical analysis software that offers a variety of packages to assist in model building and model selection. The first step of this analysis is to change the classifier into our variable of interest, Blue Tarp and all other classes. As the goal of this model will be to predict the class of a combination of pixels the following classification models will be explored: Logistic Regression, Penalized Logistic Regression (a logistic regression model with tuning parameters for an elastic net), LDA, QDA, and a KNN model.
+This model is created using RStudio with the following packages: tidyverse, tidymodels, ggcorrplot, GGally, patchwork, discrim and doParallel. RStudio is an open-source statistical analysis software that offers a variety of packages to assist in model building and model selection. The first step of this analysis is to change the classifier into our variable of interest, Blue Tarp and all other classes. As the goal of this model will be to predict the class of a combination of pixels the following classification models will be explored: Logistic Regression, Penalized Logistic Regression (a logistic regression model with tuning parameters for an elastic net), LDA, QDA, and a KNN model.
 	Of these models only the KNN model and the Logistic Regression Model will utilize tuning parameters. For the KNN model the selected tuning parameters are the number of neighbors and the number of dimensions for the PCA. The optimal tuning parameters for the KNN model are 24 neighbors and all 3 dimensions. This selection makes sense as each of the variables is important in determining a certain class of value if we consider how pixels as three values that contribute to a greater image. For the penalized model the optimal values were a mixture of .198 and a penalty of 3.96e-17. These values more closely align with a ridge regression a miniscule penalty factor, which is similar to how the PCA highlights the importance of all three variables as opposed to shrinking one of the variables more than the others.
 	For all models a 10-fold cross validation was chosen as the methodology for model validation. With an overall sample size of 63,241 and a training set of 50,593 this allows for each fold to have 5,059 records.  With this amount a 10-fold cross validation is a reliable method to evaluate the performance of the training sets for all models.
 	For all metrics the primary selection criteria was the ROC AUC. This metric provides a method to evaluate the performance of the True Positive Rate and False Positive Rate across all possible thresholds from 0 to 1.  With its efficacy as an overall evaluator of performance this is what will be used for model selection when comparing all versions of the 10-fold validation models. 
@@ -148,7 +148,7 @@ rec <- recipe(formula, data = data)
 ```
 
 
-## Section 4.1: Logistic Regression Model
+## Section 3.5.5: K-Nearest Neighbors
 
 
 ```{r knn}
@@ -167,7 +167,7 @@ knn_params <- extract_parameter_set_dials(knn_wf) %>%
   update(neighbors = neighbors(c(2, 50)))
 
 # tune with grid (or fit resamples)
-knn_fitcv <- tune_grid(knn_wf,
+knn_tune <- tune_grid(knn_wf,
                       resamples = resamples,
                       grid = grid_regular(knn_params, levels = 49),
                       control = cv_control
@@ -175,6 +175,14 @@ knn_fitcv <- tune_grid(knn_wf,
 
 # get tuning results visualization
 knn_tune_vis <- autoplot(knn_fitcv)$roc_auc
+
+# finalize workflow and fit resamples with best parameters
+knn_best_params <- select_by_one_std_err(knn_tune, neighbors, metric = 'roc_auc')
+
+knn_fitcv <- knn_wf %>% 
+  finalize_workflow(knn_best_params) %>% 
+  fit_resamples(resamples)
+
 
 # collect predictions and roc_auc from cross-validated fit
 knn_preds <-  collect_predictions(knn_fitcv)
