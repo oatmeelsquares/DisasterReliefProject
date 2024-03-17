@@ -369,6 +369,147 @@ qda_cm <- conf_mat(qda_threshold_preds, truth = Class, estimate = .pred_class)
 
 
 
+# Logistic Regression Analysis
+
+```{r logistic_regression}
+log_spec <- logistic_reg(mode = 'classification',
+                            engine = 'glm')
+                            
+# define workflow
+log_wf <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(log_spec)
+
+
+# tune with grid (or fit resamples)
+
+log_fitcv <-fit_resamples(log_wf, resamples, control=cv_control)
+
+# collect predictions and roc_auc from cross-validated fit
+log_preds <-  collect_predictions(log_fitcv)
+log_metrics <- collect_metrics(log_fitcv)
+
+# get ROC plot
+log_roc <- roc_plot(log_preds)
+
+# get threshold selection info
+log_thresh_perf <- probably::threshold_perf(log_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = metric_set(j_index,
+                                                                 specificity,
+                                                                 sensitivity,
+                                                                 accuracy))
+
+# get threshold for best sensitivity
+log_max_sens <- log_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+log_max_j <- log_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+log_tmetrics_plot <- threshold_metric_plot(log_thresh_perf, log_max_sens, log_max_j)
+
+# get predictions and metrics based on chosen threshold
+log_threshold_preds <- log_preds %>% 
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.04, 'Tarp', 'Non-Tarp')))
+
+log_threshold_metrics <- threshold_metrics(log_threshold_preds,
+                                           truth = Class,
+                                           estimate = .pred_class)
+
+# get confusion matrix for chosen threshold
+log_cm <- conf_mat(log_threshold_preds, truth = Class, estimate = .pred_class)
+```
+
+# Penalized Logistic Regression
+
+```{r penalized_logistic}
+# define model spec
+pen_spec <- logistic_reg(mode = 'classification',
+                            engine = 'glmnet',
+                            penalty = tune(),
+                            mixture = tune())
+                            
+# define workflow
+pen_wf <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(pen_spec)
+
+# set tuning parameters
+pen_params <- extract_parameter_set_dials(pen_wf) %>% 
+  update(
+    penalty=penalty(c(-20,-1)),
+    mixture=mixture(c(0,1))
+  )
+
+# tune with grid (or fit resamples)
+pen_tune <- tune_grid(pen_wf,
+                      resamples=resamples,
+                      control=cv_control,
+                      grid=grid_latin_hypercube(pen_params, size=50))
+
+# get tuning results visualization
+pen_tune_vis <- autoplot(pen_tune)$roc_auc
+
+# finalize workflow and fit resamples with best parameters
+pen_best_params <- select_best(pen_tune, metric="roc_auc")
+
+pen_fitcv <- pen_wf %>% 
+  finalize_workflow(pen_best_params) %>% 
+  fit_resamples(resamples,
+                control = cv_control
+                )
+
+# collect predictions and roc_auc from cross-validated fit
+pen_preds <-  collect_predictions(pen_fitcv)
+pen_metrics <- collect_metrics(pen_fitcv)
+
+# get ROC plot
+pen_roc <- roc_plot(pen_preds)
+
+# get threshold selection info
+pen_thresh_perf <- probably::threshold_perf(pen_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = metric_set(j_index,
+                                                                 specificity,
+                                                                 sensitivity,
+                                                                 accuracy))
+
+# get threshold for best sensitivity
+pen_max_sens <- pen_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+pen_max_j <- pen_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+pen_tmetrics_plot <- threshold_metric_plot(pen_thresh_perf, pen_max_sens, pen_max_j)
+
+# get predictions and metrics based on chosen threshold
+# the optimal threshold for the sens is .01
+pen_threshold_preds <- pen_preds %>% 
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.04, 'Tarp', 'Non-Tarp')))
+
+penlog_threshold_metrics <- threshold_metrics(pen_threshold_preds,
+                                           truth = Class,
+                                           estimate = .pred_class)
+
+# get confusion matrix for chosen threshold
+pen_cm <- conf_mat(pen_threshold_preds, truth = Class, estimate = .pred_class)
+```
 
 
 
