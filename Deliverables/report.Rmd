@@ -564,7 +564,7 @@ pen_tmetrics_plot <- threshold_metric_plot(pen_thresh_perf, pen_max_sens, pen_ma
 pen_threshold_preds <- pen_preds %>% 
   mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.04, 'Tarp', 'Non-Tarp')))
 
-penlog_threshold_metrics <- threshold_metrics(pen_threshold_preds,
+pen_threshold_metrics <- threshold_metrics(pen_threshold_preds,
                                            truth = Class,
                                            estimate = .pred_class)
 
