@@ -174,15 +174,16 @@ knn_tune <- tune_grid(knn_wf,
                       )
 
 # get tuning results visualization
-knn_tune_vis <- autoplot(knn_fitcv)$roc_auc
+knn_tune_vis <- autoplot(knn_tune)$roc_auc
 
 # finalize workflow and fit resamples with best parameters
 knn_best_params <- select_by_one_std_err(knn_tune, neighbors, metric = 'roc_auc')
 
 knn_fitcv <- knn_wf %>% 
   finalize_workflow(knn_best_params) %>% 
-  fit_resamples(resamples)
-
+  fit_resamples(resamples,
+                control = cv_control
+                )
 
 # collect predictions and roc_auc from cross-validated fit
 knn_preds <-  collect_predictions(knn_fitcv)
@@ -219,11 +220,17 @@ knn_tmetrics_plot <- threshold_metric_plot(knn_thresh_perf, knn_max_sens, knn_ma
 knn_threshold_preds <- knn_preds %>% 
   mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.04, 'Tarp', 'Non-Tarp')))
 
-knn_threshold_metrics <- threshold_merics(knn_threshold_preds)
+knn_threshold_metrics <- threshold_metrics(knn_threshold_preds,
+                                           truth = Class,
+                                           estimate = .pred_class)
 
 # get confusion matrix for chosen threshold
 knn_cm <- conf_mat(knn_threshold_preds, truth = Class, estimate = .pred_class)
 ```
+
+
+We will now build a K-nearest neighbors (KNN) model with the number of neighbors, k, tuned to find the best fit. 
+
 
 
 # Linear Discriminant Analysis
