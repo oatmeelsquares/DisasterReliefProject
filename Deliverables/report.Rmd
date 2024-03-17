@@ -258,7 +258,7 @@ knn_cm <- conf_mat(knn_threshold_preds, truth = Class, estimate = .pred_class)
 We will now build a K-nearest neighbors (KNN) model with the number of neighbors, k, tuned to find the best fit. Figure X shows the ROC AUC of the model when fitted with different numbers of neighbors. It shows that the AUC of the ROC curve increases with k, maxing around 50, and leveling out at higher tuning values. The highest AUC is **0.9943** and belongs to the model with k = 40 neighbors. However, we choose a model within one standard deviation of the best metric for simplicity. From the plot, we can see that the point with the lowest number of neighbors above the dashed standard-error line represents the model with k = 8 nearest neighbors. We will use this tuning metric moving forward.
 
 
-```{r figure-X-knn-tune}
+```{r figure-X-knn-tune, output = TRUE}
 #| fig.width: 6
 #| fig.height: 5
 #| fig.align: center
@@ -271,7 +271,7 @@ knn_tune_vis
 
 With the number of neighbors tuned to k = 8, our model has an ROC AUC of **0.9933**. The ROC curve will be displayed in the next section, when all of the models are compared. The next step is to select the appropriate threshold for our model. Figure X shows five different metrics plotted against the threshold value, with thresholds ranging from 0.01 to 0.99. The metrics were calculated using tenfold cross-validation. The vertical lines show that sensitivity and j-index are both maximized at 0.02, 0.03, and 0.04 equally. Therefore, since the other metrics increase with the threshold, we choose the highest one, threshold = 0.04, to move forward with.
 
-```{r figure-X-knn-threshold-metrics}
+```{r figure-X-knn-threshold-metrics, output = TRUE}
 #| fig.align: center
 #| out.width: 70%
 #| fig.cap: Five metrics based on threshold value for the KNN model with k = 8 nearest neighbors. Vertical lines show maximum j-index and sensitivity between 0.02 and 0.04.
@@ -282,7 +282,7 @@ knn_tmetrics_plot
 
 Our final model has k = 8 nearest neighbors and a selection threshold of 0.04. The corresponding confusion matrix is shown below.
 
-```{r knn-conf-mat}
+```{r knn-conf-mat, output = TRUE}
 knn_cm
 ```
 
@@ -612,7 +612,7 @@ pen_cm <- conf_mat(pen_threshold_preds, truth = Class, estimate = .pred_class)
 
 
 
-```{r compare-models}
+```{r compare-models, output = TRUE}
 aucs <- ( log_roc + penlog_roc  + knn_roc) / ( lda_roc + qda_roc )
 
 compare_metrics <- bind_rows(log_threshold_metrics %>% mutate(model = 'logistic regression'),
