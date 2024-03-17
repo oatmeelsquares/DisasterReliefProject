@@ -269,7 +269,6 @@ lda_fitcv <- fit_resamples(lda_wf, resamples,  control=cv_control)
 lda_preds <-  collect_predictions(lda_fitcv)
 lda_metrics <- collect_metrics(lda_fitcv)
 
-# get ROC plot (will just talk about ROC in write up without graph/listed metrics)
 lda_roc <- roc_plot(lda_preds)
 
 # get threshold selection info
@@ -301,12 +300,40 @@ lda_threshold_preds <- lda_preds %>%
  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.01, 'Tarp', 'Non-Tarp')))
 
 lda_threshold_metrics <- threshold_metrics(lda_threshold_preds, truth = Class, estimate = .pred_class)
-lda_threshold_metrics
+
 
 # get confusion matrix for chosen threshold
 lda_cm <- conf_mat(lda_threshold_preds, truth = Class, estimate = .pred_class)
 
 ```
+
+We built and trained the LDA model using the data set and then assessed the model’s performance metrics using 10-fold cross validation where we set the seed for reproducibility. We found that the model has an AUC of 0.9888, which means that it performs well on the training data and can classify blue tarp pixels versus non-tarp pixels. The next step was choosing the appropriate threshold for this model. Figure X displays the threshold plot with the plotted values of the chosen metrics from 0 to 1.  
+
+```{r figure-X-lda-threshold-metrics}
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Four metrics based on threshold value for the LDA model. Vertical lines show maximum j-index and sensitivity at 0.01.
+#| dev: "png"
+#| dpi: 100
+lda_tmetrics_plot
+```
+ 
+
+These displayed metrics are accuracy, j-index, sensitivity, and specificity, but we are most interested in sensitivity and j-index. Both sensitivity and j-index perform the best at a threshold of around 0.01. This value of 0.01 will be the chosen threshold for our model when utilizing it for predictions. After threshold selection, the confusion matrix for the model was assessed where we explored the number of false negatives, false positives, and True positives (figure X). We found that while we miss some blue tarp pixels, we locate many more, while also limiting the number of false positives.
+ 
+
+```{r figure-X-lda-cm}
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: True positives are fairly high. False negatives are fairly low, while also limiting the number of false positives.
+#| dev: "png"
+#| dpi: 100
+lda_cm
+```
+
+ 
+The LDA model performed very well on the data at the selected threshold. Sensitivity, accuracy, and precision are all estimated between 0.976 and 0.996, which is very high for these metrics. This model appears to be accurate and sensitive to this data. The LDA model could be a good option as our chosen model, but it will need to be compared to the other models first, which we will do later in this report. 
+
 
 # Quadratic Discriminant Analysis
 
@@ -328,7 +355,6 @@ qda_fitcv <- fit_resamples(qda_wf, resamples,  control=cv_control)
 qda_preds <-  collect_predictions(qda_fitcv)
 qda_metrics <- collect_metrics(qda_fitcv)
 
-# get ROC plot (will just talk about ROC in write up without graph/listed metrics)
 qda_roc <- roc_plot(qda_preds)
 
 # get threshold selection info
@@ -358,7 +384,7 @@ qda_tmetrics_plot <- threshold_metric_plot(qda_thresh_perf, qda_max_sens, qda_ma
 
 # get predictions and metrics based on chosen threshold
 qda_threshold_preds <- qda_preds %>% 
- mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.01, 'Tarp', 'Non-Tarp')))
+ mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.015, 'Tarp', 'Non-Tarp')))
 
 qda_threshold_metrics <- threshold_metrics(qda_threshold_preds, truth = Class, estimate = .pred_class)
 
@@ -366,6 +392,35 @@ qda_threshold_metrics <- threshold_metrics(qda_threshold_preds, truth = Class, e
 # get confusion matrix for chosen threshold
 qda_cm <- conf_mat(qda_threshold_preds, truth = Class, estimate = .pred_class)
 ```
+
+
+We built and trained a QDA model using blue tarp and non-tarp data. This model will potentially be used to predict blue tarp locations so that resources can be provided to people in need. We found that the model's AUC was 0.9982, which means it performs very well on the data. The QDA model can almost perfectly classify the data set into blue tarp pixels versus non-tarp pixels. The next step was selecting the best threshold based on sensitivity and j_index. We found that the maximum sensitivity is at a threshold of 0.01, while the maximum j-index was at 0.02. The metrics are revealed in the threshold plot in figure X. 
+
+```{r figure-X-qda-threshold-metrics}
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Four metrics based on threshold value for the QDA model. Vertical lines show maximum j-index and sensitivity at 0.02 and 0.01, respectively.
+#| dev: "png"
+#| dpi: 100
+qda_tmetrics_plot
+```
+ 
+
+Since sensitivity and j-index are both important for this data, we decided to choose a threshold in between the two for our model, which was 0.015. This threshold value seems to maximize these metrics, as the j-index comes out to be 0.9692, while the sensitivity is 0.9717.  
+
+After we selected the appropriate threshold for our mode, we then assessed the confusion matrix for this model with the selected threshold. The model performed extremely well at this selected threshold in terms of locating blue tarp pixels as there are only 5 that are missed. However, when choosing a final model, it will be important to keep in mind that the number of false positives is almost equal to the number of true positives for this model. 
+
+
+```{r figure-X-qda-cm}
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: True positives are fairly high. False negatives are fairly low, while also limiting the number of false positives.
+#| dev: "png"
+#| dpi: 100
+qda_cm
+```
+
+The QDA model at the selected threshold has a sensitivity of 0.9717, accuracy of 0.9725, and precision of 0.9999. These metrics reveal that the QDA model performs very well on the data and can correctly identify almost all the blue tarp pixels. The QDA model appears to perform better than the LDA model so it seems that the data benefits from some flexibility in the predictive algorithm. 
 
 
 
