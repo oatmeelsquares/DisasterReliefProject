@@ -362,12 +362,7 @@ lda_tmetrics_plot
 These displayed metrics are accuracy, j-index, sensitivity, and specificity, but we are most interested in sensitivity and j-index. Both sensitivity and j-index perform the best at a threshold of around 0.01. This value of 0.01 will be the chosen threshold for our model when utilizing it for predictions. After threshold selection, the confusion matrix for the model was assessed where we explored the number of false negatives, false positives, and True positives (figure X). We found that while we miss some blue tarp pixels, we locate many more, while also limiting the number of false positives.
  
 
-```{r figure-X-lda-cm, output = TRUE}
-#| fig.align: center
-#| out.width: 70%
-#| fig.cap: True positives are fairly high. False negatives are fairly low, while also limiting the number of false positives.
-#| dev: "png"
-#| dpi: 100
+```{r lda-cm, output = TRUE}
 lda_cm
 ```
 
@@ -451,12 +446,7 @@ Since sensitivity and j-index are both important for this data, we decided to ch
 After we selected the appropriate threshold for our mode, we then assessed the confusion matrix for this model with the selected threshold. The model performed extremely well at this selected threshold in terms of locating blue tarp pixels as there are only 5 that are missed. However, when choosing a final model, it will be important to keep in mind that the number of false positives is almost equal to the number of true positives for this model. 
 
 
-```{r figure-X-qda-cm, output = TRUE}
-#| fig.align: center
-#| out.width: 70%
-#| fig.cap: True positives are fairly high. False negatives are fairly low, while also limiting the number of false positives.
-#| dev: "png"
-#| dpi: 100
+```{r qda-cm, output = TRUE}
 qda_cm
 ```
 
