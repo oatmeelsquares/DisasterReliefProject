@@ -10,7 +10,8 @@ knitr::opts_chunk$set(cache = TRUE,
                       autodep = TRUE,
                       message = FALSE,
                       warning = FALSE,
-                      include = FALSE)
+                      echo = FALSE
+                      )
 library(tidyverse)
 library(tidymodels)
 library(ggcorrplot)
@@ -34,7 +35,7 @@ This report explores various classification methods that could be useful in loca
 
 # Data
 
-```{r load-data, warning = FALSE, message = FALSE}
+```{r load-data, include = FALSE}
 # load data from file
 file = "https://gedeck.github.io/DS-6030/project/HaitiPixels.csv"
 #file = '../data.csv'
@@ -47,13 +48,16 @@ data %>% summary()
 
 
 
-The boxplots below showcase the distribution of the range of pixel values grouped by each of the categories of images observed. For are analysis one thing we would like to note is the potential groups that could overlap with out goal value of blue tarps. Rooftop values seem to be the closet for which a potential prediction error is likely to occur as its values overlap quite closely with the blue tarps. This is followed by Various Non-Tarps that have a large range of values which encompass tarps.
+The box plots below showcase the distribution of the range of pixel values grouped by each of the categories of images observed. For are analysis one thing we would like to note is the potential groups that could overlap with out goal value of blue tarps. Rooftop values seem to be the closet for which a potential prediction error is likely to occur as its values overlap quite closely with the blue tarps. This is followed by Various Non-Tarps that have a large range of values which encompass tarps.
 
 ```{r EDA_Boxplots}
-#| fig.width: 8
-#| fig.height: 8
+#| fig.width: 6
+#| fig.height: 5
 #| fig.align: center
-#| out.width: 75%
+#| out.width: 70%
+#| fig.cap: Box plots of the pixel values broken out by each colour and class.
+#| dev: "png"
+#| dpi: 100
 g1_box <- ggplot(data, aes(x=Class, y=Red))+
   geom_boxplot()+
   labs(title= "Boxplots of Red Pixel Value by Class")
@@ -72,19 +76,25 @@ g1_box/g2_box/g3_box
 
 The countplot below shows the total counts grouped by class. Blue tarp has the smallest amount of values at 2022. While this is important to note for the threshold selection later on in the model. It is promising that the two largest values by far are vegetation and soil as they are the two who are least likely to represent false positive or false negative values when predicting for tarps. Rooftops and Various Non-Tarps however, do account for 14,647 which do have closer overlaps.  
 
-```{r EDA_Countplot_Class_ungrouped}
-
+```{r EDA_Countplot_Class_ungrouped }
+#| fig.width: 6
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Count plot of total counts broken out by each class
+#| dev: "png"
+#| dpi: 100
 ggplot(data, aes(Class))+
   geom_bar()+
   labs(title= "Count Plot of Class", x="Count")
 ```
+Table 1 highlights the values of Tarps vs Non-Tarp. In this instance we note that the proportion of tarps in the total dataset is 3%. When we conduct our threshold selection across all models this will be important as the models will default to a 50-50 threshold.
 
 
-
-```{r EDA_Count_Table}
+```{r EDA_Count_Table_1}
 data <- data %>% 
   mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
-table(data$Class) %>% knitr::kable(caption = "Table 1: Count of Class")
+table(data$Class) %>% knitr::kable(caption = "Count of Class")
 ```
 
 # Description of Methodology
@@ -235,7 +245,7 @@ knn_cm <- conf_mat(knn_threshold_preds, truth = Class, estimate = .pred_class)
 We will now build a K-nearest neighbors (KNN) model with the number of neighbors, k, tuned to find the best fit. Figure X shows the ROC AUC of the model when fitted with different numbers of neighbors. It shows that the AUC of the ROC curve increases with k, maxing around 50, and leveling out at higher tuning values. The highest AUC is **0.9943** and belongs to the model with k = 40 neighbors. However, we choose a model within one standard deviation of the best metric for simplicity. From the plot, we can see that the point with the lowest number of neighbors above the dashed standard-error line represents the model with k = 8 nearest neighbors. We will use this tuning metric moving forward.
 
 
-```{r figure-X-knn-tune, output = TRUE}
+```{r figure-X-knn-tune}
 #| fig.width: 6
 #| fig.height: 5
 #| fig.align: center
@@ -248,7 +258,7 @@ knn_tune_vis
 
 With the number of neighbors tuned to k = 8, our model has an ROC AUC of **0.9933**. The ROC curve will be displayed in the next section, when all of the models are compared. The next step is to select the appropriate threshold for our model. Figure X shows five different metrics plotted against the threshold value, with thresholds ranging from 0.01 to 0.99. The metrics were calculated using tenfold cross-validation. The vertical lines show that sensitivity and j-index are both maximized at 0.02, 0.03, and 0.04 equally. Therefore, since the other metrics increase with the threshold, we choose the highest one, threshold = 0.04, to move forward with.
 
-```{r figure-X-knn-threshold-metrics, output = TRUE}
+```{r figure-X-knn-threshold-metrics}
 #| fig.align: center
 #| out.width: 70%
 #| fig.cap: Five metrics based on threshold value for the KNN model with k = 8 nearest neighbors. Vertical lines show maximum j-index and sensitivity between 0.02 and 0.04.
@@ -259,7 +269,7 @@ knn_tmetrics_plot
 
 Our final model has k = 8 nearest neighbors and a selection threshold of 0.04. The corresponding confusion matrix is shown below.
 
-```{r knn-conf-mat, output = TRUE}
+```{r knn-conf-mat}
 knn_cm
 ```
 
@@ -326,7 +336,7 @@ lda_cm <- conf_mat(lda_threshold_preds, truth = Class, estimate = .pred_class)
 
 We built and trained the LDA model using the data set and then assessed the model’s performance metrics using 10-fold cross validation where we set the seed for reproducibility. We found that the model has an AUC of 0.9888, which means that it performs well on the training data and can classify blue tarp pixels versus non-tarp pixels. The next step was choosing the appropriate threshold for this model. Figure X displays the threshold plot with the plotted values of the chosen metrics from 0 to 1.  
 
-```{r figure-X-lda-threshold-metrics, output = TRUE}
+```{r figure-X-lda-threshold-metrics}
 #| fig.align: center
 #| out.width: 70%
 #| fig.cap: Four metrics based on threshold value for the LDA model. Vertical lines show maximum j-index and sensitivity at 0.01.
@@ -339,7 +349,7 @@ lda_tmetrics_plot
 These displayed metrics are accuracy, j-index, sensitivity, and specificity, but we are most interested in sensitivity and j-index. Both sensitivity and j-index perform the best at a threshold of around 0.01. This value of 0.01 will be the chosen threshold for our model when utilizing it for predictions. After threshold selection, the confusion matrix for the model was assessed where we explored the number of false negatives, false positives, and True positives (figure X). We found that while we miss some blue tarp pixels, we locate many more, while also limiting the number of false positives.
  
 
-```{r lda-cm, output = TRUE}
+```{r lda-cm}
 lda_cm
 ```
 
@@ -408,7 +418,7 @@ qda_cm <- conf_mat(qda_threshold_preds, truth = Class, estimate = .pred_class)
 
 We built and trained a QDA model using blue tarp and non-tarp data. This model will potentially be used to predict blue tarp locations so that resources can be provided to people in need. We found that the model's AUC was 0.9982, which means it performs very well on the data. The QDA model can almost perfectly classify the data set into blue tarp pixels versus non-tarp pixels. The next step was selecting the best threshold based on sensitivity and j_index. We found that the maximum sensitivity is at a threshold of 0.01, while the maximum j-index was at 0.02. The metrics are revealed in the threshold plot in figure X. 
 
-```{r figure-X-qda-threshold-metrics, output = TRUE}
+```{r figure-X-qda-threshold-metrics}
 #| fig.align: center
 #| out.width: 70%
 #| fig.cap: Four metrics based on threshold value for the QDA model. Vertical lines show maximum j-index and sensitivity at 0.02 and 0.01, respectively.
@@ -423,7 +433,7 @@ Since sensitivity and j-index are both important for this data, we decided to ch
 After we selected the appropriate threshold for our mode, we then assessed the confusion matrix for this model with the selected threshold. The model performed extremely well at this selected threshold in terms of locating blue tarp pixels as there are only 5 that are missed. However, when choosing a final model, it will be important to keep in mind that the number of false positives is almost equal to the number of true positives for this model. 
 
 
-```{r qda-cm, output = TRUE}
+```{r qda-cm}
 qda_cm
 ```
 
@@ -517,7 +527,7 @@ pen_tune <- tune_grid(pen_wf,
                       grid=grid_latin_hypercube(pen_params, size=50))
 
 # get tuning results visualization
-pen_tune_vis <- autoplot(pen_tune)$roc_auc
+pen_tune_vis <- autoplot(pen_tune, metric = "roc_auc")
 
 # finalize workflow and fit resamples with best parameters
 pen_best_params <- select_best(pen_tune, metric="roc_auc")
@@ -573,21 +583,21 @@ pen_cm <- conf_mat(pen_threshold_preds, truth = Class, estimate = .pred_class)
 ```
 
 There are two types of logistic regression models that are used, a standard logistic regression model and a penalized logistic regression model. While the logistic regression model does not have any parameters to tune, the penalized logistic regression model is a model that applies a penalty value on predictor variables to attempt to shrink less important variables.
-There are two tuning parameters of interest mixture, which is a metric that will determine if the model is closer to a ridge regression or lasso regression; and penalty, which measures how strongly the predictor variables are penalized. For this model the optimal mixture is 0.208 and a penalty of 1.279e-10. These values reflect how important all predictor variables are for identifying the class of the value. The ridge regression model does not reduce the values to zero like lasso, this reflects why the mixture value is relatively low. The penalty value being small reflects the importance of all variables and how reducing all values proportionally does not benefit the model to a large degree.
+There are two tuning parameters of interest mixture, which is a metric that will determine if the model is closer to a ridge regression or lasso regression; and penalty, which measures how strongly the predictor variables are penalized. For this model the optimal mixture is 0.208 and a penalty of 1.279e-10. When examining figure 7 we can see how larger penalty values incur worse performance. These values reflect how important all predictor variables are for identifying the class of the value. The ridge regression model does not reduce the values to zero like lasso, this reflects why the mixture value is relatively low. The penalty value being small reflects the importance of all variables and how reducing all values proportionally does not benefit the model to a large degree.
 
-```{r figure-X-pen-tune, output = TRUE}
+```{r figure-X-pen-tune}
 #| fig.width: 6
 #| fig.height: 5
 #| fig.align: center
 #| out.width: 70%
-#| fig.cap: ROC based on penalty and mixture values. The dashed horizontal line represents one standard deviation lower than the best AUC metric.
+#| fig.cap: ROC based on penalty and mixture values. Left hand chart corresponds to penalty value, right hand chart corresponds to mixture.
 #| dev: "png"
 #| dpi: 100
 pen_tune_vis
 ```
 Our two metrics of interest for threshold selection are the j-index and sensitivity. The j-index represents a metric that captures the overall performance of the classification model at capturing both true negatives and true positives. Sensitivity is a measure that prioritizes minimizing false negatives. Depending on the circumstances both measures present important considerations for threshold selection. The j-index is ideal if trying to find a balance of overall performance; for our models this would be helpful when we have limited resources for first responders to try and go through many false positives. Maximizing sensitivity allows is ideal if there are large number of resources for first responders to ensure that no blue tarps are missed due to false negatives. For the logistic regression model the optimal threshold that maximizes the j-index is .05 and for sensitivity it is .01. For the penalized logistic regression model the optimal threshold that maximizes the j-index is .04 and for sensitivity it is .01. As the overall split of blue tarp vs non blue tarp is 3%, we will utilize the .05 threshold for the logistic regression and .04 for the penalized logistic regression.  Both these values maximize the j-index to find more of a balance between sensitivity and specificity, substantially reducing the number of false positives compared to the .01 threshold.
 
-```{r figure-X-log-threshold-metrics, output = TRUE}
+```{r figure-X-log-threshold-metrics}
 #| fig.align: center
 #| out.width: 70%
 #| fig.cap: Five metrics based on threshold value for the Logistic Regression model. Vertical lines show maximum j-index and sensitivity between 0.01 and 0.05.
@@ -596,7 +606,7 @@ Our two metrics of interest for threshold selection are the j-index and sensitiv
 log_tmetrics_plot
 ```
 
-```{r figure-X-pen-threshold-metrics, output = TRUE}
+```{r figure-X-pen-threshold-metrics}
 #| fig.align: center
 #| out.width: 70%
 #| fig.cap: Five metrics based on threshold value for the Penalized Logistic Regression model. Vertical lines show maximum j-index and sensitivity between 0.01 and 0.04.
@@ -606,11 +616,11 @@ pen_tmetrics_plot
 ```
 
 
-```{r log-conf-mat, output = TRUE}
+```{r log-conf-mat}
 log_cm
 ```
 
-```{r pen-conf-mat, output = TRUE}
+```{r pen-conf-mat}
 pen_cm
 ```
 
@@ -649,23 +659,23 @@ compare_threshold_metrics <- bind_rows(log_threshold_metrics %>% mutate(model = 
 
 When making a final selection and recommendation of what model to use we first begin by evaluating the ROC AUC of all the models.  Figure X shows the ROC curves with Table 2 showing the AUC metric for each model. All of the ROC curves show excellent performance, which is confirmed by the AUC values. Every model has a very high AUC value with the lowest being the LDA at .9888 and the highest being the penalized logistic regression at .9986 (all within 1% of each other).  While the ROC does offer good insight into overall performance it does not provide the whole picture as to final model performance. 
 
-```{r figure-X-ROC-metrics, output = TRUE}
+```{r figure-X-ROC-metrics}
 #| fig.align: center
 #| out.width: 70%
-#| fig.cap: ROC plots for all models from Top Row Logistic, Penalized, KNN   Bottom Row LDA, QDA
+#| fig.cap: ROC plots for all models from top row Logistic, Penalized, KNN  Bottom row LDA, QDA
 #| dev: "png"
 #| dpi: 100
 aucs
 ```
 
-```{r table-2-metrics, output = TRUE}
-table(compare_metrics) %>% knitr::kable(caption = "Table 2: Compare AUC of all models")
+```{r table-2-metrics}
+compare_metrics %>% knitr::kable(caption = "Compare AUC of all models")
 ```
 
 Table 3 shows the other metrics for each model at a given threshold (refer to section 3.5 for a discussion of threshold selection). All of the models perform similarly with KNN having the highest j-index and sensitivity. The j-index ranges from 0.8648 for the LDA to 0.9830 for the KNN model.  The sensitivity ranges from 0.9659 for the QDA to 0.9959 for the KNN model. 
 
-```{r table-3-metrics, output = TRUE}
-table(compare_threshold_metrics) %>% knitr::kable(caption = "Table 3: Compare Threshold Metrics of all models")
+```{r table-3-metrics}
+compare_threshold_metrics %>% knitr::kable(caption = "Compare Threshold Metrics of all models")
 ```
 
 
