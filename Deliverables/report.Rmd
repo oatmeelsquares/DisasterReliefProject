@@ -149,8 +149,8 @@ threshold_metric_plot <- function(thresh_perf, max_sens, max_j) {
 }
 
 threshold_metrics <- metric_set(j_index,
-                                specificity,
                                 sensitivity,
+                                specificity,
                                 accuracy,
                                 precision)
 
