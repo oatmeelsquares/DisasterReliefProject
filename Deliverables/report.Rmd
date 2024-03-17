@@ -77,8 +77,6 @@ The countplot below shows the total counts grouped by class. Blue tarp has the s
 ggplot(data, aes(Class))+
   geom_bar()+
   labs(title= "Count Plot of Class", x="Count")
-
-table(data$Class) %>% knitr::kable()
 ```
 
 
@@ -86,7 +84,7 @@ table(data$Class) %>% knitr::kable()
 ```{r EDA_Count_Table}
 data <- data #%>% 
   mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
-table(data$Class) %>% knitr::kable()
+table(data$Class) %>% knitr::kable(caption = "Table 1: Count of Class")
 ```
 
 # Description of Methodology
@@ -433,7 +431,7 @@ The QDA model at the selected threshold has a sensitivity of 0.9717, accuracy of
 
 
 
-# Logistic Regression Analysis
+## Logistic Regression Analysis and Penalized Logistic Regression Analysis
 
 ```{r logistic_regression}
 log_spec <- logistic_reg(mode = 'classification',
@@ -492,7 +490,6 @@ log_threshold_metrics <- threshold_metrics(log_threshold_preds,
 log_cm <- conf_mat(log_threshold_preds, truth = Class, estimate = .pred_class)
 ```
 
-# Penalized Logistic Regression
 
 ```{r penalized_logistic}
 # define model spec
@@ -575,22 +572,85 @@ penlog_threshold_metrics <- threshold_metrics(pen_threshold_preds,
 pen_cm <- conf_mat(pen_threshold_preds, truth = Class, estimate = .pred_class)
 ```
 
+There are two types of logistic regression models that are used, a standard logistic regression model and a penalized logistic regression model. While the logistic regression model does not have any parameters to tune, the penalized logistic regression model is a model that applies a penalty value on predictor variables to attempt to shrink less important variables.
+There are two tuning parameters of interest mixture, which is a metric that will determine if the model is closer to a ridge regression or lasso regression; and penalty, which measures how strongly the predictor variables are penalized. For this model the optimal mixture is 0.208 and a penalty of 1.279e-10. These values reflect how important all predictor variables are for identifying the class of the value. The ridge regression model does not reduce the values to zero like lasso, this reflects why the mixture value is relatively low. The penalty value being small reflects the importance of all variables and how reducing all values proportionally does not benefit the model to a large degree.
+
+```{r figure-X-pen-tune, output = TRUE}
+#| fig.width: 6
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: ROC based on penalty and mixture values. The dashed horizontal line represents one standard deviation lower than the best AUC metric.
+#| dev: "png"
+#| dpi: 100
+pen_tune_vis
+```
+Our two metrics of interest for threshold selection are the j-index and sensitivity. The j-index represents a metric that captures the overall performance of the classification model at capturing both true negatives and true positives. Sensitivity is a measure that prioritizes minimizing false negatives. Depending on the circumstances both measures present important considerations for threshold selection. The j-index is ideal if trying to find a balance of overall performance; for our models this would be helpful when we have limited resources for first responders to try and go through many false positives. Maximizing sensitivity allows is ideal if there are large number of resources for first responders to ensure that no blue tarps are missed due to false negatives. For the logistic regression model the optimal threshold that maximizes the j-index is .05 and for sensitivity it is .01. For the penalized logistic regression model the optimal threshold that maximizes the j-index is .04 and for sensitivity it is .01. As the overall split of blue tarp vs non blue tarp is 3%, we will utilize the .05 threshold for the logistic regression and .04 for the penalized logistic regression.  Both these values maximize the j-index to find more of a balance between sensitivity and specificity, substantially reducing the number of false positives compared to the .01 threshold.
+
+```{r figure-X-log-threshold-metrics, output = TRUE}
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Five metrics based on threshold value for the Logistic Regression model. Vertical lines show maximum j-index and sensitivity between 0.01 and 0.05.
+#| dev: "png"
+#| dpi: 100
+log_tmetrics_plot
+```
+
+```{r figure-X-pen-threshold-metrics, output = TRUE}
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Five metrics based on threshold value for the Penalized Logistic Regression model. Vertical lines show maximum j-index and sensitivity between 0.01 and 0.04.
+#| dev: "png"
+#| dpi: 100
+pen_tmetrics_plot
+```
 
 
-```{r compare-models, output = TRUE}
-aucs <- ( log_roc + penlog_roc  + knn_roc) / ( lda_roc + qda_roc )
+```{r log-conf-mat, output = TRUE}
+log_cm
+```
 
-compare_metrics <- bind_rows(log_threshold_metrics %>% mutate(model = 'logistic regression'),
-                             penlog_threshold_metrics %>% mutate(model = 'penalized logreg'),
+```{r pen-conf-mat, output = TRUE}
+pen_cm
+```
+
+	To evaluate final model performance, we examine the models ROC AUC as a metric that captures its full performance across all thresholds. This flexibility allows leeway in case of changing threshold selection for prioritizing a different goal outcome. The AUC of the optimal logistic regression model is 0.9985 which indicates a very high performing model. The AUC of the optimal penalized logistic regression model is 0.9986 which also is a very high value.
+
+
+
+```{r compare-models}
+aucs <- ( log_roc + pen_roc  + knn_roc) / ( lda_roc + qda_roc )
+
+compare_metrics <- bind_rows(log_metrics %>% mutate(model = 'logistic regression'),
+                             pen_metrics %>% mutate(model = 'penalized logreg'),
+                             lda_metrics %>% mutate(model = 'LDA'),
+                             qda_metrics %>% mutate(model = 'QDA'),
+                             knn_metrics %>% mutate(model = 'KNN')
+                             ) %>% 
+  pivot_wider(id_cols = model,
+              names_from = .metric,
+              values_from = mean) %>% 
+  dplyr::select(model, roc_auc)
+
+compare_threshold_metrics <- bind_rows(log_threshold_metrics %>% mutate(model = 'logistic regression'),
+                             pen_threshold_metrics %>% mutate(model = 'penalized logreg'),
                              lda_threshold_metrics %>% mutate(model = 'LDA'),
                              qda_threshold_metrics %>% mutate(model = 'QDA'),
                              knn_threshold_metrics %>% mutate(model = 'KNN')
                              ) %>% 
   pivot_wider(id_cols = model,
               names_from = .metric,
-              values_from = .estimate)
+              values_from = .estimate) %>% 
+  mutate(threshold = c(.05, .04, .01, .015, .04)) 
+
 ```
 
+# Results
+
+When making a final selection and recommendation of what model to use we first begin by evaluating the ROC AUC of all the models.  Figure X shows the ROC curves with Table 2 showing the AUC metric for each model. All of the ROC curves show excellent performance, which is confirmed by the AUC values. Every model has a very high AUC value with the lowest being the LDA at .9888 and the highest being the penalized logistic regression at .9986 (all within 1% of each other).  While the ROC does offer good insight into overall performance it does not provide the whole picture as to final model performance. 
+
+
+Table 3 shows the other metrics for each model at a given threshold (refer to section 3.5 for a discussion of threshold selection). All of the models perform similarly with KNN having the highest j-index and sensitivity. The j-index ranges from 0.8648 for the LDA to 0.9830 for the KNN model.  The sensitivity ranges from 0.9659 for the QDA to 0.9959 for the KNN model. 
 
 
 
@@ -598,19 +658,6 @@ compare_metrics <- bind_rows(log_threshold_metrics %>% mutate(model = 'logistic 
 # Conclusion
 
 
->Three or more clearly identifiable conclusions. This section is more important than the previous sections (as
-reflected in the points). Give sufficient explanation and justification for each conclusion.
-One conclusion must be:
-• determination and justification of which algorithm works best.
-Additional conclusions should be observations you’ve made based on your work on this project, such as:
-• What additional recommend actions can be taken to improve results?
-• Were there multiple adequately performing methods, or just one clear best method? What is your level
-of confidence in the results?
-• What is it about this data formulation that allows us to address it with predictive modeling tools?
-• How effective do you think your work here could actually be in terms of helping to save human life?
-• Do these data seem particularly well-suited to one class of prediction methods, and if so, why?
-These are only suggestions, pursue your own interests. Your best two additional conclusions will be graded.
-Make sure that the 3 conclusions are clearly separated.
 
 ## Conclusion 1
 
