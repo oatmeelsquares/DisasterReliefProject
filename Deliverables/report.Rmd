@@ -349,7 +349,7 @@ lda_cm <- conf_mat(lda_threshold_preds, truth = Class, estimate = .pred_class)
 
 We built and trained the LDA model using the data set and then assessed the model’s performance metrics using 10-fold cross validation where we set the seed for reproducibility. We found that the model has an AUC of 0.9888, which means that it performs well on the training data and can classify blue tarp pixels versus non-tarp pixels. The next step was choosing the appropriate threshold for this model. Figure X displays the threshold plot with the plotted values of the chosen metrics from 0 to 1.  
 
-```{r figure-X-lda-threshold-metrics}
+```{r figure-X-lda-threshold-metrics, output = TRUE}
 #| fig.align: center
 #| out.width: 70%
 #| fig.cap: Four metrics based on threshold value for the LDA model. Vertical lines show maximum j-index and sensitivity at 0.01.
@@ -362,7 +362,7 @@ lda_tmetrics_plot
 These displayed metrics are accuracy, j-index, sensitivity, and specificity, but we are most interested in sensitivity and j-index. Both sensitivity and j-index perform the best at a threshold of around 0.01. This value of 0.01 will be the chosen threshold for our model when utilizing it for predictions. After threshold selection, the confusion matrix for the model was assessed where we explored the number of false negatives, false positives, and True positives (figure X). We found that while we miss some blue tarp pixels, we locate many more, while also limiting the number of false positives.
  
 
-```{r figure-X-lda-cm}
+```{r figure-X-lda-cm, output = TRUE}
 #| fig.align: center
 #| out.width: 70%
 #| fig.cap: True positives are fairly high. False negatives are fairly low, while also limiting the number of false positives.
@@ -436,7 +436,7 @@ qda_cm <- conf_mat(qda_threshold_preds, truth = Class, estimate = .pred_class)
 
 We built and trained a QDA model using blue tarp and non-tarp data. This model will potentially be used to predict blue tarp locations so that resources can be provided to people in need. We found that the model's AUC was 0.9982, which means it performs very well on the data. The QDA model can almost perfectly classify the data set into blue tarp pixels versus non-tarp pixels. The next step was selecting the best threshold based on sensitivity and j_index. We found that the maximum sensitivity is at a threshold of 0.01, while the maximum j-index was at 0.02. The metrics are revealed in the threshold plot in figure X. 
 
-```{r figure-X-qda-threshold-metrics}
+```{r figure-X-qda-threshold-metrics, output = TRUE}
 #| fig.align: center
 #| out.width: 70%
 #| fig.cap: Four metrics based on threshold value for the QDA model. Vertical lines show maximum j-index and sensitivity at 0.02 and 0.01, respectively.
@@ -451,7 +451,7 @@ Since sensitivity and j-index are both important for this data, we decided to ch
 After we selected the appropriate threshold for our mode, we then assessed the confusion matrix for this model with the selected threshold. The model performed extremely well at this selected threshold in terms of locating blue tarp pixels as there are only 5 that are missed. However, when choosing a final model, it will be important to keep in mind that the number of false positives is almost equal to the number of true positives for this model. 
 
 
-```{r figure-X-qda-cm}
+```{r figure-X-qda-cm, output = TRUE}
 #| fig.align: center
 #| out.width: 70%
 #| fig.cap: True positives are fairly high. False negatives are fairly low, while also limiting the number of false positives.
