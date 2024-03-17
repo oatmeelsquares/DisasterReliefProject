@@ -242,7 +242,7 @@ knn_cm <- conf_mat(knn_threshold_preds, truth = Class, estimate = .pred_class)
 ```
 
 
-We will now build a K-nearest neighbors (KNN) model with the number of neighbors, k, tuned to find the best fit. Figure X shows the ROC AUC of the model when fitted with different numbers of neighbors. It shows that the AUC of the ROC curve increases with k, maxing around 50, and leveling out at higher tuning values. The highest AUC is **0.9943** and belongs to the model with k = 40 neighbors. However, we choose a model within one standard deviation of the best metric for simplicity. From the plot, we can see that the point with the lowest number of neighbors above the dashed standard-error line represents the model with k = 8 nearest neighbors. We will use this tuning metric moving forward.
+We will now build a K-nearest neighbors (KNN) model with the number of neighbors, k, tuned to find the best fit. Figure 3 shows the ROC AUC of the model when fitted with different numbers of neighbors. It shows that the AUC of the ROC curve increases with k, maxing around 50, and leveling out at higher tuning values. The highest AUC is **0.9943** and belongs to the model with k = 40 neighbors. However, we choose a model within one standard deviation of the best metric for simplicity. From the plot, we can see that the point with the lowest number of neighbors above the dashed standard-error line represents the model with k = 8 nearest neighbors. We will use this tuning metric moving forward.
 
 
 ```{r figure-X-knn-tune}
@@ -256,7 +256,7 @@ We will now build a K-nearest neighbors (KNN) model with the number of neighbors
 knn_tune_vis
 ```
 
-With the number of neighbors tuned to k = 8, our model has an ROC AUC of **0.9933**. The ROC curve will be displayed in the next section, when all of the models are compared. The next step is to select the appropriate threshold for our model. Figure X shows five different metrics plotted against the threshold value, with thresholds ranging from 0.01 to 0.99. The metrics were calculated using tenfold cross-validation. The vertical lines show that sensitivity and j-index are both maximized at 0.02, 0.03, and 0.04 equally. Therefore, since the other metrics increase with the threshold, we choose the highest one, threshold = 0.04, to move forward with.
+With the number of neighbors tuned to k = 8, our model has an ROC AUC of **0.9933**. The ROC curve will be displayed in the next section, when all of the models are compared. The next step is to select the appropriate threshold for our model. Figure 4 shows five different metrics plotted against the threshold value, with thresholds ranging from 0.01 to 0.99. The metrics were calculated using tenfold cross-validation. The vertical lines show that sensitivity and j-index are both maximized at 0.02, 0.03, and 0.04 equally. Therefore, since the other metrics increase with the threshold, we choose the highest one, threshold = 0.04, to move forward with.
 
 ```{r figure-X-knn-threshold-metrics}
 #| fig.align: center
@@ -592,7 +592,7 @@ There are two tuning parameters of interest mixture, which is a metric that will
 #| dpi: 100
 pen_tune_vis
 ```
-Our two metrics of interest for threshold selection are the j-index and sensitivity. The j-index represents a metric that captures the overall performance of the classification model at capturing both true negatives and true positives. Sensitivity is a measure that prioritizes minimizing false negatives. Depending on the circumstances both measures present important considerations for threshold selection. The j-index is ideal if trying to find a balance of overall performance; for our models this would be helpful when we have limited resources for first responders to try and go through many false positives. Maximizing sensitivity allows is ideal if there are large number of resources for first responders to ensure that no blue tarps are missed due to false negatives. For the logistic regression model the optimal threshold that maximizes the j-index is .05 and for sensitivity it is .01. For the penalized logistic regression model the optimal threshold that maximizes the j-index is .04 and for sensitivity it is .01. As the overall split of blue tarp vs non blue tarp is 3%, we will utilize the .05 threshold for the logistic regression and .04 for the penalized logistic regression.  Both these values maximize the j-index to find more of a balance between sensitivity and specificity, substantially reducing the number of false positives compared to the .01 threshold.
+Our two metrics of interest for threshold selection are the j-index and sensitivity which can be seen in figures 8 and 9. The j-index represents a metric that captures the overall performance of the classification model at capturing both true negatives and true positives. Sensitivity is a measure that prioritizes minimizing false negatives. Depending on the circumstances both measures present important considerations for threshold selection. The j-index is ideal if trying to find a balance of overall performance; for our models this would be helpful when we have limited resources for first responders to try and go through many false positives. Maximizing sensitivity allows is ideal if there are large number of resources for first responders to ensure that no blue tarps are missed due to false negatives. For the logistic regression model the optimal threshold that maximizes the j-index is .05 and for sensitivity it is .01. For the penalized logistic regression model the optimal threshold that maximizes the j-index is .04 and for sensitivity it is .01. As the overall split of blue tarp vs non blue tarp is 3%, we will utilize the .05 threshold for the logistic regression and .04 for the penalized logistic regression.  Both these values maximize the j-index to find more of a balance between sensitivity and specificity, substantially reducing the number of false positives compared to the .01 threshold.
 
 ```{r figure-X-log-threshold-metrics}
 #| fig.align: center
@@ -612,6 +612,7 @@ log_tmetrics_plot
 pen_tmetrics_plot
 ```
 
+The confusion matrices below shows the breakout of our values at the optimal thresholds for the Logistic Regression and Peanalized Logistic Regression Model respecively.
 
 ```{r log-conf-mat}
 log_cm
@@ -621,7 +622,7 @@ log_cm
 pen_cm
 ```
 
-	To evaluate final model performance, we examine the models ROC AUC as a metric that captures its full performance across all thresholds. This flexibility allows leeway in case of changing threshold selection for prioritizing a different goal outcome. The AUC of the optimal logistic regression model is 0.9985 which indicates a very high performing model. The AUC of the optimal penalized logistic regression model is 0.9986 which also is a very high value.
+To evaluate final model performance, we examine the models ROC AUC as a metric that captures its full performance across all thresholds. This flexibility allows leeway in case of changing threshold selection for prioritizing a different goal outcome. The AUC of the optimal logistic regression model is 0.9985 which indicates a very high performing model. The AUC of the optimal penalized logistic regression model is 0.9986 which also is a very high value.
 
 
 
@@ -654,7 +655,7 @@ compare_threshold_metrics <- bind_rows(log_threshold_metrics %>% mutate(model = 
 
 # Results
 
-When making a final selection and recommendation of what model to use we first begin by evaluating the ROC AUC of all the models.  Figure X shows the ROC curves with Table 2 showing the AUC metric for each model. All of the ROC curves show excellent performance, which is confirmed by the AUC values. Every model has a very high AUC value with the lowest being the LDA at .9888 and the highest being the penalized logistic regression at .9986 (all within 1% of each other).  While the ROC does offer good insight into overall performance it does not provide the whole picture as to final model performance. 
+When making a final selection and recommendation of what model to use we first begin by evaluating the ROC AUC of all the models.  Figure 10 shows the ROC curves with Table 2 showing the AUC metric for each model. All of the ROC curves show excellent performance, which is confirmed by the AUC values. Every model has a very high AUC value with the lowest being the LDA at .9888 and the highest being the penalized logistic regression at .9986 (all within 1% of each other).  While the ROC does offer good insight into overall performance it does not provide the whole picture as to final model performance. 
 
 ```{r figure-X-ROC-metrics}
 #| fig.align: center
