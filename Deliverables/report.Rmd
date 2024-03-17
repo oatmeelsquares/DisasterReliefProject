@@ -41,9 +41,6 @@ file = "https://gedeck.github.io/DS-6030/project/HaitiPixels.csv"
 #file = '../data.csv'
 data <- read_csv(file) #%>% 
   #mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
-
-data %>% glimpse()
-data %>% summary()
 ```
 
 
@@ -103,7 +100,7 @@ This model is created using RStudio with the following packages: tidyverse, tidy
 
 Of these models, the KNN model and the Logistic Regression Model will utilize tuning parameters. Tuning parameters will be selected to maximize ROC AUC. For the KNN model, the selected tuning parameter is the number of neighbors, k. The number of neighbors selected will be the lowest k within one standard deviation of the maximum ROC AUC. For the penalized model, mixture and penalty will be tuned, and the best model will be selected based on ROC AUC.
 
-For all models a tenfold cross-validation will be used for model validation. All metrics will be estimated using tenfold cross-validation. With an overall sample size of 63,241, this allows for each fold to have 6,324 records. With this amount of data, a tenfold cross validation is a reliable method to evaluate the performance of the training sets for all models.
+For all models a tenfold cross-validation will be used for model validation. All metrics will be estimated using tenfold cross-validation. With an overall sample size of 63,241, this allows for each fold to have 6,324 records. With this amount of data, a tenfold cross validation is a reliable method to evaluate the performance of the training sets for all models. We set the seed for all random processes to 6030.
 
 All models will be compared based on ROC AUC. This metric provides a method to evaluate the performance of the True Positive Rate and False Positive Rate across all possible thresholds from 0 to 1. With its efficacy as an overall evaluator of performance, this metric will be used for model selection when comparing all versions of the tenfold validation models. 
 
