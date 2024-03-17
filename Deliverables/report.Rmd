@@ -43,7 +43,7 @@ data <- read_csv(file) #%>%
   #mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
 ```
 
-
+The dataset that will be used consists of class as a response variable and red, blue, green pixels as the predictor variables. There are a total of 63,241 records with no missing values. Pixels can have a range of 0-255 but for this dataset all pixels have a max of 255. Red and green pixels share a minimum value of 48 and blue has a minimum of 44. For Class there are five distinct values: Blue Tarp, Rooftop, Soil, Various Non-Tarp, and Vegetation.
 
 The box plots below showcase the distribution of the range of pixel values grouped by each of the categories of images observed. For are analysis one thing we would like to note is the potential groups that could overlap with out goal value of blue tarps. Rooftop values seem to be the closet for which a potential prediction error is likely to occur as its values overlap quite closely with the blue tarps. This is followed by Various Non-Tarps that have a large range of values which encompass tarps.
 
