@@ -612,6 +612,9 @@ of confidence in the results?
 These are only suggestions, pursue your own interests. Your best two additional conclusions will be graded.
 Make sure that the 3 conclusions are clearly separated.
 
+## Conclusion 1
+
+We concluded that the KNN method results in the best algorithm that classifies each pixel as a blue tarp pixel or a non-tarp pixel after the performance metrics for each model were assessed. While it is important to consider all metrics when determining the best model, in this context, it is most important to identify the majority of the tarp pixels and limit the number of false negatives so that we can locate most of the displaced persons. The sensitivity and j-index were the metrics that we mainly focused on with this goal in mind. The KNN model had the highest j-index and the highest sensitivity out of all of the models so that is the one that we believe will be most useful and accurate in identifying blue tarps. This model will play a major role in providing resources to displaced persons and potentially saving human lives.
 
 
 ## Conclusion 3
