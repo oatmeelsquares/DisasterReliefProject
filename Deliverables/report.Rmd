@@ -24,11 +24,11 @@ registerDoParallel(cl)
 
 # Section 1: Introduction
 
-The 2010 earthquake in Haiti was a devastating natural disaster that caused extreme damaged and displaced millions of people. After this disaster, the rescue workers needed to deliver food, water, and other resources to the people of Haiti, but it was challenging locating the people in need over this large area. These challenges included roads blocked by rubble and the inability to communicate as traditional lines of communication were destroyed by the earthquake. The rescue workers needed to find another strategy other than physically looking for them on land to locate and reach these displaced persons quickly and more efficiently. 
+The 2010 earthquake in Haiti was a devastating natural disaster that caused extreme damage and displaced millions of people. After this disaster, the rescue workers needed to deliver food, water, and other resources to the people of Haiti, but it was challenging locating the people in need over this large area. These challenges included roads blocked by rubble and the inability to communicate because of damage to communication infrastructure. The rescue workers needed to find another strategy other than physically looking for them on land to locate and reach these displaced persons quickly and more efficiently. 
 
 The people of Haiti who were displaced by the earthquake were using blue tarps as temporary shelter. This knowledge was utilized to locate these people after imagery was collected by aircraft flown by a rescue team from the Rochester Institute of Technology. Blue tarps could be searched for within these images by the rescue team who would then go to these coordinates and find them. However, that strategy would have been too slow, and resources would not have been delivered in time. A different strategy that could be used to more efficiently locate people in need of resources was to continue to use these images but instead use data-mining algorithms to search these images. 
 
-This report explores various classification methods that could be useful in locating these blue tarps within the imagery taken by aircraft. The algorithms tested and explored include those that utilize Logistic Regression, Linear Discriminant Analysis, Quadratic Discriminant Analysis, K-nearest Neighbors, and Penalized Logistic Regression. We expect at least one of these methods to work more efficiently and more accurately than human efforts as these algorithms can handle more data, perform complex operations, and potentially fit to the patterns of the data to identify the blue tarps. The chosen algorithm may be less likely to miss as many blue tarps as a human would, and it is critical to identify that algorithm that will perform the best. This is an important data-mining problem that could have a large impact on human life. This report will identify the algorithm that most accurately and most efficiently identifies these blue tarps so that the displaced persons in Haiti in need of resources can receive them on time. 
+This report explores various classification methods that could be useful in locating these blue tarps within the images taken by aircraft. The algorithms tested and explored include those that utilize Logistic Regression with and without penalty, Linear Discriminant Analysis, Quadratic Discriminant Analysis, and K-Nearest Neighbors. We expect at least one of these methods to work more efficiently and more accurately than human efforts as these algorithms can handle more data, perform complex operations, and potentially fit to the patterns of the data to identify the blue tarps. The chosen algorithm will likely to miss fewer blue tarps than a human would. It is critical to identify that algorithm that will perform the best so that aid can be delivered to displaced people in dire circumstances. This is an important data-mining problem that could have a large impact on human life. This report will identify the algorithm that most accurately and most efficiently identifies these blue tarps so that the displaced Haitians can receive desperately needed resources in time. 
 
 
 # Section 2: Data
@@ -53,27 +53,15 @@ data %>% summary()
 
 # Section 3: Description of Methodology
 
->Overall model building process well defined and explained.
-• describe used software
-• describe and justify parameter tuning and model selection (if applicable)
-• describe and justify model validation
-• describe and justify threshold selection
-• describe and justify metrics used for model performance evaluation
+This model is created using RStudio with the following packages: tidyverse, tidymodels, ggcorrplot, GGally, patchwork, discrim and doParallel. RStudio is an open-source statistical analysis software that offers a variety of packages to assist in model building and model selection. The first step of this analysis is to change the classifier into our variable of interest. The raw data classifies the pixels into Blue Tarp, Rooftop, Soil, Various Non-Tarp, and Vegetation, however we are only interested in whether the pixel is a Blue Tarp or not a Blue Tarp. We changed the factor outcome variable to have only two levels: Tarp and Non-Tarp. As the goal of this model will be to predict the class of a combination of pixels the following classification models will be explored: Logistic Regression, Penalized Logistic Regression (a logistic regression model with tuning parameters for an elastic net), linear discriminant analysis (LDA), quadtratic discriminant analysis (QDA), and a K-Nearest-Neighbors (KNN) model.
 
->Model training consists of these steps:
-- Model validation using 10-fold cross validation; this includes model tuning if applicable
-- what metric will you use?
-- Threshold selection
-- what metric will you use?
-- Are “penalized logistic regression” and “logistic regression” really two different models or just variations of the same?
+Of these models, the KNN model and the Logistic Regression Model will utilize tuning parameters. Tuning parameters will be selected to maximuze ROC AUC. For the KNN model, the selected tuning parameter is the number of neighbors, k. The number of neighbors selected will be the lowest k within one standard deviation of the maximum ROC AUC. For the penalized model, mixture and penalty will be tuned, and the best model will be selected based on ROC AUC.
 
->From Becky: be sure to mention we did a 20-80 test-training split with stratified sampling of Blue Tarp pixels.
+For all models a tenfold cross-validation will be used for model validation. All metrics will be estimated using tenfold cross-validation. With an overall sample size of 63,241, this allows for each fold to have 6,324 records. With this amount of data, a tenfold cross validation is a reliable method to evaluate the performance of the training sets for all models.
 
-This model is created using RStudio with the following packages: tidyverse, tidymodels, ggcorrplot, GGally, patchwork, discrim and doParallel. RStudio is an open-source statistical analysis software that offers a variety of packages to assist in model building and model selection. The first step of this analysis is to change the classifier into our variable of interest, Blue Tarp and all other classes. As the goal of this model will be to predict the class of a combination of pixels the following classification models will be explored: Logistic Regression, Penalized Logistic Regression (a logistic regression model with tuning parameters for an elastic net), LDA, QDA, and a KNN model.
-	Of these models only the KNN model and the Logistic Regression Model will utilize tuning parameters. For the KNN model the selected tuning parameters are the number of neighbors and the number of dimensions for the PCA. The optimal tuning parameters for the KNN model are 24 neighbors and all 3 dimensions. This selection makes sense as each of the variables is important in determining a certain class of value if we consider how pixels as three values that contribute to a greater image. For the penalized model the optimal values were a mixture of .198 and a penalty of 3.96e-17. These values more closely align with a ridge regression a miniscule penalty factor, which is similar to how the PCA highlights the importance of all three variables as opposed to shrinking one of the variables more than the others.
-	For all models a 10-fold cross validation was chosen as the methodology for model validation. With an overall sample size of 63,241 and a training set of 50,593 this allows for each fold to have 5,059 records.  With this amount a 10-fold cross validation is a reliable method to evaluate the performance of the training sets for all models.
-	For all metrics the primary selection criteria was the ROC AUC. This metric provides a method to evaluate the performance of the True Positive Rate and False Positive Rate across all possible thresholds from 0 to 1.  With its efficacy as an overall evaluator of performance this is what will be used for model selection when comparing all versions of the 10-fold validation models. 
-	As established during the EDA the proportion of Blue Tarps to all other classes is approximately 3%. This indicates that a 50% threshold would be a poor choice for the final model.  While four metrics will be explored for threshold selection (accuracy, j-index, sensitivity, and specificity) our primary metrics of interest will be sensitivity and j-index. For sensitivity we want to minimize false negatives since these would be individuals that could be missed when response time is extremely important. The J-index is chosen as a metric that balances sensitivity and specificity. This would be valuable in models were responders have limited resources to check potential points of interest. While we do have higher false negatives, we have vastly reduced false positives that allows for lower potential locations to check.
+All models will be compared based on ROC AUC. This metric provides a method to evaluate the performance of the True Positive Rate and False Positive Rate across all possible thresholds from 0 to 1. With its efficacy as an overall evaluator of performance, this metric will be used for model selection when comparing all versions of the tenfold validation models. 
+
+As established during the EDA, the proportion of Blue Tarps to all other classes is approximately 3%. This indicates that a 50% threshold would be a poor choice for the final model. While five metrics will be explored for threshold selection (accuracy, j-index, sensitivity, specificity, and precision) our primary metrics of interest will be sensitivity and j-index. Sensitivity is especially important because we want to minimize false negatives - those could represent individuals that could be missed when response time is extremely important. The j-index is chosen as a metric that balances sensitivity and specificity. This will be valuable in models were responders have limited resources to check potential points of interest. While maximizing based on j-index will result in a higher false negative rate, we will greatly reduce false positives, which will make sure that we can make the most out of the time and resources allocated to the relief effort. In this report, we will assume that we have relatively unlimited resources and therefore pick thresholds based rimarily on sensitivity. J-index will be our secondary metric for selecting threshold. These same metrics will be used and weighted similarly when determining model performance, for similar reasons.
 
 
 
@@ -164,17 +152,18 @@ knn_wf <- workflow() %>%
 
 # set tuning parameters
 knn_params <- extract_parameter_set_dials(knn_wf) %>% 
-  update(neighbors = neighbors(c(2, 50)))
+  update(neighbors = neighbors(c(2, 100)))
 
 # tune with grid (or fit resamples)
 knn_tune <- tune_grid(knn_wf,
                       resamples = resamples,
-                      grid = grid_regular(knn_params, levels = 49),
+                      grid = grid_regular(knn_params, levels = 50),
                       control = cv_control
                       )
 
 # get tuning results visualization
-knn_tune_vis <- autoplot(knn_tune)$roc_auc
+knn_tune_vis <- autoplot(knn_tune, metric = 'roc_auc') +
+  geom_hline(yintercept = (0.9943110 - 0.001139833), linetype = 'dashed')
 
 # finalize workflow and fit resamples with best parameters
 knn_best_params <- select_by_one_std_err(knn_tune, neighbors, metric = 'roc_auc')
@@ -198,10 +187,7 @@ knn_thresh_perf <- probably::threshold_perf(knn_preds,
                                             .pred_Tarp,
                                             thresholds = seq(0.01, 0.99, 0.01),
                                             event_level = 'second',
-                                            metrics = metric_set(j_index,
-                                                                 specificity,
-                                                                 sensitivity,
-                                                                 accuracy))
+                                            metrics = threshold_metrics)
 
 # get threshold for best sensitivity
 knn_max_sens <- knn_thresh_perf %>% 
@@ -229,8 +215,40 @@ knn_cm <- conf_mat(knn_threshold_preds, truth = Class, estimate = .pred_class)
 ```
 
 
-We will now build a K-nearest neighbors (KNN) model with the number of neighbors, k, tuned to find the best fit. 
+We will now build a K-nearest neighbors (KNN) model with the number of neighbors, k, tuned to find the best fit. Figure X shows the ROC AUC of the model when fitted with different numbers of neighbors. It shows that the AUC of the ROC curve increases with k, maxing around 50, and leveling out at higher tuning values. The highest AUC is **0.9943** and belongs to the model with k = 40 neighbors. However, we choose a model within one standard deviation of the best metric for simplicity. From the plot, we can see that the point with the lowest number of neighbors above the dashed standard-error line represents the model with k = 8 nearest neighbors. We will use this tuning metric moving forward.
 
+
+```{r figure-X-knn-tune}
+#| fig.width: 6
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: ROC AUC based on number of principal components and nearest neighbors. The dashed horizontal line represents one standard deviation lower than the best AUC metric.
+#| dev: "png"
+#| dpi: 100
+knn_tune_vis
+```
+
+With the number of neighbors tuned to k = 8, our model has an ROC AUC of **0.9933**. The ROC curve will be displayed in the next section, when all of the models are compared. The next step is to select the appropriate threshold for our model. Figure X shows five different metrics plotted against the threshold value, with thresholds ranging from 0.01 to 0.99. The metrics were calculated using tenfold cross-validation. The vertical lines show that sensitivity and j-index are both maximized at 0.02, 0.03, and 0.04 equally. Therefore, since the other metrics increase with the threshold, we choose the highest one, threshold = 0.04, to move forward with.
+
+```{r figure-X-knn-threshold-metrics}
+#| fig.width: 6
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Five metrics based on threshold value for the KNN model with k = 8 nearest neighbors. Vertical lines show maximum j-index and sensitivity between 0.02 and 0.04.
+#| dev: "png"
+#| dpi: 100
+knn_tmetrics_plot
+```
+
+Our final model has k = 8 nearest neighbors and a selection threshold of 0.04. The corresponding confusion matrix is shown below.
+
+```{r knn-conf-mat}
+knn_cm
+```
+
+The confusion matrix shows that our final model misses only 26 Blue Tarp pixels and falsely identifies 251 Non-Tarp pixels. The overall accuracy of the model is 0.9956, with sensitivity of 0.9959. The precision is also very high: 0.9996. The specificity is 0.9871 and the j-index comes out to 0.9830.
 
 
 # Linear Discriminant Analysis
@@ -246,13 +264,15 @@ lda_wf <- workflow() %>%
   add_model(lda_spec)
 
 
-#fit resamples
+# fit resamples
 lda_fitcv <- fit_resamples(lda_wf, resamples,  control=cv_control)
 
 # collect predictions and roc_auc from cross-validated fit
 lda_preds <-  collect_predictions(lda_fitcv)
 lda_metrics <- collect_metrics(lda_fitcv)
-#will just talk about ROC in write up without graph/listed metrics
+
+# get ROC plot (will just talk about ROC in write up without graph/listed metrics)
+lda_roc <- roc_plot(lda_preds)
 
 # get threshold selection info
 lda_thresh_perf <- probably::threshold_perf(lda_preds,
@@ -309,7 +329,9 @@ qda_fitcv <- fit_resamples(qda_wf, resamples,  control=cv_control)
 # collect predictions and roc_auc from cross-validated fit
 qda_preds <-  collect_predictions(qda_fitcv)
 qda_metrics <- collect_metrics(qda_fitcv)
-#will just talk about ROC in write up without graph/listed metrics
+
+# get ROC plot (will just talk about ROC in write up without graph/listed metrics)
+qda_roc <- roc_plot(qda_preds)
 
 # get threshold selection info
 qda_thresh_perf <- probably::threshold_perf(qda_preds,
@@ -347,24 +369,6 @@ qda_threshold_metrics <- threshold_metrics(qda_threshold_preds, truth = Class, e
 qda_cm <- conf_mat(qda_threshold_preds, truth = Class, estimate = .pred_class)
 ```
 
-> Write-up
-
-
-```{r knn-auc-vs-metrics}
-#| fig.width: 9
-#| fig.height: 5
-#| fig.align: center
-#| out.width: 70%
-#| fig.cap: Plot of ROC curve for the logistic regression model with no penalty. The AUC is 0.9976.
-#| dev: "png"
-#| dpi: 100
-# display logreg ROC curve
-roc_plot(logreg_preds)
-```
-
-> describe ROC curve, report AUC (without printing it out), and 
-
-Figure 1 shows the corresponding ROC curve to demonstrate the performance of the model. We note a very high AUC of **0.9987**, indicating a very effective model. From the visualization and the ROC AUC metric, it is clear that the model performs well. To optimize its predictive capability, we now investigate further to choose a threshold.
 
 
 
@@ -374,15 +378,18 @@ Figure 1 shows the corresponding ROC curve to demonstrate the performance of the
 
 
 
+```{r compare-models}
+aucs <- ( log_roc + penlog_roc  + knn_roc) / ( lda_roc + qda_roc )
 
-
-
-```{r compare-metrics}
 compare_metrics <- bind_rows(log_threshold_metrics %>% mutate(model = 'logistic regression'),
                              penlog_threshold_metrics %>% mutate(model = 'penalized logreg'),
                              lda_threshold_metrics %>% mutate(model = 'LDA'),
-                             qda_threshold_metrics,
-                             knn_threshold_metrics)
+                             qda_threshold_metrics %>% mutate(model = 'QDA'),
+                             knn_threshold_metrics %>% mutate(model = 'KNN')
+                             ) %>% 
+  pivot_wider(id_cols = model,
+              names_from = .metric,
+              values_from = .estimate)
 ```
 
 
