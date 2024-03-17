@@ -44,9 +44,7 @@ data <- read_csv(file) #%>%
 data %>% glimpse()
 data %>% summary()
 ```
->You will need to do some EDA
-- EDA - focus your discussion of the results on what it means for the model
-- Be selective with your EDA. Focus on results that have a relevance to the project. You can always mention that you tried other visualizations, but didn’t get much more out of it. If you add a graph, it should add to your analysis and cover something that cannot already be seen in other graphs.
+
 
 
 The boxplots below showcase the distribution of the range of pixel values grouped by each of the categories of images observed. For are analysis one thing we would like to note is the potential groups that could overlap with out goal value of blue tarps. Rooftop values seem to be the closet for which a potential prediction error is likely to occur as its values overlap quite closely with the blue tarps. This is followed by Various Non-Tarps that have a large range of values which encompass tarps.
@@ -106,25 +104,6 @@ As established during the EDA, the proportion of Blue Tarps to all other classes
 
 
 # Section 4: Results of Model Fitting, Tuning Parameter Selection, and Evaluation
-
-
->Model performance summarized in one or more tables or figures. Expected information shown:
-• ROC curves and AUC
-• Optimal model tuning parameters
-• Selected threshold
-• Accuracy, TPR, FPR, Precision calculated at selected threshold
-
->When you present metrics, talk about their relevance for the objective of this project
-- When you present your results, split it into results from model validation and results after threshold selection. e.g. ROC curves are only relevant for discussing model validation results and not threshold selection; reporting accuracy or any other threshold dependent metric prior to threshold selection is irrelevant.
-- If you visualize the same analysis for each model, combine them either in a single graph or a combination of graphs in one figure (using patchwork)
-
->Focus your discussion also on differences between models.
-- For example LDA and QDA are conceptually similar but differ in the way they can represent the decision boundary. 
-- What do the differences in the results for LDA and QDA tell you?
-- Another example that you can discuss is the difference between , penalized logistic regression and logistic regression.
-
-
-
 
 
 ```{r convenience-functions}
@@ -595,10 +574,6 @@ penlog_threshold_metrics <- threshold_metrics(pen_threshold_preds,
 # get confusion matrix for chosen threshold
 pen_cm <- conf_mat(pen_threshold_preds, truth = Class, estimate = .pred_class)
 ```
-
-
-
-
 
 
 
