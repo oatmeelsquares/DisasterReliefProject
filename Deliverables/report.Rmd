@@ -276,7 +276,7 @@ knn_cm
 The confusion matrix shows that our final model misses only 26 Blue Tarp pixels and falsely identifies 251 Non-Tarp pixels. The overall accuracy of the model is 0.9956, with sensitivity of 0.9959. The precision is also very high: 0.9996. The specificity is 0.9871 and the j-index comes out to 0.9830.
 
 
-# Linear Discriminant Analysis
+## Linear Discriminant Analysis
 
 ```{r lda}
 # define model spec
@@ -355,7 +355,7 @@ lda_cm
  
 The LDA model performed very well on the data at the selected threshold. Sensitivity, accuracy, and precision are all estimated between 0.976 and 0.996. This model appears to be fairly accurate and sensitive to the data.  
 
-# Quadratic Discriminant Analysis
+## Quadratic Discriminant Analysis
 
 ```{r qda}
 # define model spec
