@@ -652,7 +652,7 @@ When making a final selection and recommendation of what model to use we first b
 ```{r figure-X-ROC-metrics, output = TRUE}
 #| fig.align: center
 #| out.width: 70%
-#| fig.cap: ROC plots for all models from top row: Logistic, Penalized, KNN; bottom row: LDA,QDA
+#| fig.cap: ROC plots for all models from Top Row Logistic, Penalized, KNN   Bottom Row LDA, QDA
 #| dev: "png"
 #| dpi: 100
 aucs
