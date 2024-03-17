@@ -9,7 +9,8 @@ output: pdf_document
 knitr::opts_chunk$set(cache = TRUE,
                       autodep = TRUE,
                       message = FALSE,
-                      warning = FALSE)
+                      warning = FALSE,
+                      include = FALSE)
 library(tidyverse)
 library(tidymodels)
 library(ggcorrplot)
@@ -37,8 +38,8 @@ This report explores various classification methods that could be useful in loca
 # load data from file
 # file = "https://gedeck.github.io/DS-6030/project/HaitiPixels.csv"
 file = '../data.csv'
-data <- read_csv(file) %>% 
-  mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
+data <- read_csv(file) #%>% 
+  #mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
 
 data %>% glimpse()
 data %>% summary()
@@ -48,8 +49,47 @@ data %>% summary()
 - Be selective with your EDA. Focus on results that have a relevance to the project. You can always mention that you tried other visualizations, but didn’t get much more out of it. If you add a graph, it should add to your analysis and cover something that cannot already be seen in other graphs.
 
 
+The boxplots below showcase the distribution of the range of pixel values grouped by each of the categories of images observed. For are analysis one thing we would like to note is the potential groups that could overlap with out goal value of blue tarps. Rooftop values seem to be the closet for which a potential prediction error is likely to occur as its values overlap quite closely with the blue tarps. This is followed by Various Non-Tarps that have a large range of values which encompass tarps.
+
+```{r EDA_Boxplots}
+#| fig.width: 8
+#| fig.height: 8
+#| fig.align: center
+#| out.width: 75%
+g1_box <- ggplot(data, aes(x=Class, y=Red))+
+  geom_boxplot()+
+  labs(title= "Boxplots of Red Pixel Value by Class")
+
+g2_box <- ggplot(data, aes(x=Class, y=Green))+
+  geom_boxplot()+
+  labs(title= "Boxplots of Green Pixel Value by Class")
+
+g3_box <- ggplot(data, aes(x=Class, y=Blue))+
+  geom_boxplot()+
+  labs(title= "Boxplots of Blue Pixel Value by Class")
+
+g1_box/g2_box/g3_box
+
+```
+
+The countplot below shows the total counts grouped by class. Blue tarp has the smallest amount of values at 2022. While this is important to note for the threshold selection later on in the model. It is promising that the two largest values by far are vegetation and soil as they are the two who are least likely to represent false positive or false negative values when predicting for tarps. Rooftops and Various Non-Tarps however, do account for 14,647 which do have closer overlaps.  
+
+```{r EDA_Countplot_Class_ungrouped}
+
+ggplot(data, aes(Class))+
+  geom_bar()+
+  labs(title= "Count Plot of Class", x="Count")
+
+table(data$Class) %>% knitr::kable()
+```
 
 
+
+```{r EDA_Count_Table}
+data <- data #%>% 
+  mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
+table(data$Class) %>% knitr::kable()
+```
 
 # Section 3: Description of Methodology
 
