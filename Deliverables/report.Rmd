@@ -36,8 +36,8 @@ This report explores various classification methods that could be useful in loca
 
 ```{r load-data, warning = FALSE, message = FALSE}
 # load data from file
-# file = "https://gedeck.github.io/DS-6030/project/HaitiPixels.csv"
-file = '../data.csv'
+file = "https://gedeck.github.io/DS-6030/project/HaitiPixels.csv"
+#file = '../data.csv'
 data <- read_csv(file) #%>% 
   #mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
 
@@ -82,7 +82,7 @@ ggplot(data, aes(Class))+
 
 
 ```{r EDA_Count_Table}
-data <- data #%>% 
+data <- data %>% 
   mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
 table(data$Class) %>% knitr::kable(caption = "Table 1: Count of Class")
 ```
@@ -91,7 +91,7 @@ table(data$Class) %>% knitr::kable(caption = "Table 1: Count of Class")
 
 This model is created using RStudio with the following packages: tidyverse, tidymodels, ggcorrplot, GGally, patchwork, discrim and doParallel. RStudio is an open-source statistical analysis software that offers a variety of packages to assist in model building and model selection. The first step of this analysis is to change the classifier into our variable of interest. The raw data classifies the pixels into Blue Tarp, Rooftop, Soil, Various Non-Tarp, and Vegetation, however we are only interested in whether the pixel is a Blue Tarp or not a Blue Tarp. We changed the factor outcome variable to have only two levels: Tarp and Non-Tarp. As the goal of this model will be to predict the class of a combination of pixels the following classification models will be explored: Logistic Regression, Penalized Logistic Regression (a logistic regression model with tuning parameters for an elastic net), linear discriminant analysis (LDA), quadtratic discriminant analysis (QDA), and a K-Nearest-Neighbors (KNN) model.
 
-Of these models, the KNN model and the Logistic Regression Model will utilize tuning parameters. Tuning parameters will be selected to maximuze ROC AUC. For the KNN model, the selected tuning parameter is the number of neighbors, k. The number of neighbors selected will be the lowest k within one standard deviation of the maximum ROC AUC. For the penalized model, mixture and penalty will be tuned, and the best model will be selected based on ROC AUC.
+Of these models, the KNN model and the Logistic Regression Model will utilize tuning parameters. Tuning parameters will be selected to maximize ROC AUC. For the KNN model, the selected tuning parameter is the number of neighbors, k. The number of neighbors selected will be the lowest k within one standard deviation of the maximum ROC AUC. For the penalized model, mixture and penalty will be tuned, and the best model will be selected based on ROC AUC.
 
 For all models a tenfold cross-validation will be used for model validation. All metrics will be estimated using tenfold cross-validation. With an overall sample size of 63,241, this allows for each fold to have 6,324 records. With this amount of data, a tenfold cross validation is a reliable method to evaluate the performance of the training sets for all models.
 
