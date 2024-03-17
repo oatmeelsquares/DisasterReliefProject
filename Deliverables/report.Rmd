@@ -649,9 +649,24 @@ compare_threshold_metrics <- bind_rows(log_threshold_metrics %>% mutate(model = 
 
 When making a final selection and recommendation of what model to use we first begin by evaluating the ROC AUC of all the models.  Figure X shows the ROC curves with Table 2 showing the AUC metric for each model. All of the ROC curves show excellent performance, which is confirmed by the AUC values. Every model has a very high AUC value with the lowest being the LDA at .9888 and the highest being the penalized logistic regression at .9986 (all within 1% of each other).  While the ROC does offer good insight into overall performance it does not provide the whole picture as to final model performance. 
 
+```{r figure-X-ROC-metrics, output = TRUE}
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: ROC plots for all models from top row: Logistic, Penalized, KNN; bottom row: LDA,QDA
+#| dev: "png"
+#| dpi: 100
+aucs
+```
+
+```{r table-2-metrics, output = TRUE}
+table(compare_metrics) %>% knitr::kable(caption = "Table 2: Compare AUC of all models")
+```
 
 Table 3 shows the other metrics for each model at a given threshold (refer to section 3.5 for a discussion of threshold selection). All of the models perform similarly with KNN having the highest j-index and sensitivity. The j-index ranges from 0.8648 for the LDA to 0.9830 for the KNN model.  The sensitivity ranges from 0.9659 for the QDA to 0.9959 for the KNN model. 
 
+```{r table-3-metrics, output = TRUE}
+table(compare_threshold_metrics) %>% knitr::kable(caption = "Table 3: Compare Threshold Metrics of all models")
+```
 
 
 
