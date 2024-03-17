@@ -232,8 +232,6 @@ knn_tune_vis
 With the number of neighbors tuned to k = 8, our model has an ROC AUC of **0.9933**. The ROC curve will be displayed in the next section, when all of the models are compared. The next step is to select the appropriate threshold for our model. Figure X shows five different metrics plotted against the threshold value, with thresholds ranging from 0.01 to 0.99. The metrics were calculated using tenfold cross-validation. The vertical lines show that sensitivity and j-index are both maximized at 0.02, 0.03, and 0.04 equally. Therefore, since the other metrics increase with the threshold, we choose the highest one, threshold = 0.04, to move forward with.
 
 ```{r figure-X-knn-threshold-metrics}
-#| fig.width: 6
-#| fig.height: 5
 #| fig.align: center
 #| out.width: 70%
 #| fig.cap: Five metrics based on threshold value for the KNN model with k = 8 nearest neighbors. Vertical lines show maximum j-index and sensitivity between 0.02 and 0.04.
