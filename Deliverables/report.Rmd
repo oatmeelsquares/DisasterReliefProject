@@ -23,7 +23,7 @@ registerDoParallel(cl)
 ```
 
 
-# Section 1: Introduction
+# Introduction
 
 The 2010 earthquake in Haiti was a devastating natural disaster that caused extreme damage and displaced millions of people. After this disaster, the rescue workers needed to deliver food, water, and other resources to the people of Haiti, but it was challenging locating the people in need over this large area. These challenges included roads blocked by rubble and the inability to communicate because of damage to communication infrastructure. The rescue workers needed to find another strategy other than physically looking for them on land to locate and reach these displaced persons quickly and more efficiently. 
 
@@ -32,7 +32,7 @@ The people of Haiti who were displaced by the earthquake were using blue tarps a
 This report explores various classification methods that could be useful in locating these blue tarps within the images taken by aircraft. The algorithms tested and explored include those that utilize Logistic Regression with and without penalty, Linear Discriminant Analysis, Quadratic Discriminant Analysis, and K-Nearest Neighbors. We expect at least one of these methods to work more efficiently and more accurately than human efforts as these algorithms can handle more data, perform complex operations, and potentially fit to the patterns of the data to identify the blue tarps. The chosen algorithm will likely to miss fewer blue tarps than a human would. It is critical to identify that algorithm that will perform the best so that aid can be delivered to displaced people in dire circumstances. This is an important data-mining problem that could have a large impact on human life. This report will identify the algorithm that most accurately and most efficiently identifies these blue tarps so that the displaced Haitians can receive desperately needed resources in time. 
 
 
-# Section 2: Data
+# Data
 
 ```{r load-data, warning = FALSE, message = FALSE}
 # load data from file
@@ -89,7 +89,7 @@ data <- data #%>%
 table(data$Class) %>% knitr::kable()
 ```
 
-# Section 3: Description of Methodology
+# Description of Methodology
 
 This model is created using RStudio with the following packages: tidyverse, tidymodels, ggcorrplot, GGally, patchwork, discrim and doParallel. RStudio is an open-source statistical analysis software that offers a variety of packages to assist in model building and model selection. The first step of this analysis is to change the classifier into our variable of interest. The raw data classifies the pixels into Blue Tarp, Rooftop, Soil, Various Non-Tarp, and Vegetation, however we are only interested in whether the pixel is a Blue Tarp or not a Blue Tarp. We changed the factor outcome variable to have only two levels: Tarp and Non-Tarp. As the goal of this model will be to predict the class of a combination of pixels the following classification models will be explored: Logistic Regression, Penalized Logistic Regression (a logistic regression model with tuning parameters for an elastic net), linear discriminant analysis (LDA), quadtratic discriminant analysis (QDA), and a K-Nearest-Neighbors (KNN) model.
 
@@ -103,7 +103,7 @@ As established during the EDA, the proportion of Blue Tarps to all other classes
 
 
 
-# Section 4: Results of Model Fitting, Tuning Parameter Selection, and Evaluation
+# Results of Model Fitting, Tuning Parameter Selection, and Evaluation
 
 
 ```{r convenience-functions}
@@ -155,7 +155,7 @@ rec <- recipe(formula, data = data)
 ```
 
 
-## Section 3.5.5: K-Nearest Neighbors
+## K-Nearest Neighbors
 
 
 ```{r knn}
@@ -595,7 +595,7 @@ compare_metrics <- bind_rows(log_threshold_metrics %>% mutate(model = 'logistic 
 
 
 
-# Section 5: Conclusion
+# Conclusion
 
 
 >Three or more clearly identifiable conclusions. This section is more important than the previous sections (as
@@ -614,7 +614,9 @@ Make sure that the 3 conclusions are clearly separated.
 
 
 
+## Conclusion 3
 
+We found that all of the methods performed very well, and there was no one clearly best method. Though the KNN model had the best sensitivity and j-index, which we considered to be the most important metrics, all of the models had very high metrics for not only j-index and sensitivity, but specificity, accuracy and precision as well. For this reason, we are more confident in our results because the models were able to reliably perform well on the data.
 
 
 
