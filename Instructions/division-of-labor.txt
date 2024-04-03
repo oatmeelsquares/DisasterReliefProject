@@ -88,4 +88,18 @@
 	☐	decide what conclusion to draw (what interests us?)
 	☐	writeup
 
+Notes about project:
 
+ - data visualization:
+    over plotting: smaller points, density plots, heatmaps
+    density plots are prettier than boxplots and give more information
+- reduce memory size of plots: #| dev: png, #| dpi: 300
+- log transform y to lessen dispersion, especially for LDA
+- percentage of each component as part of the overall color
+- use a different color scale model (HSL)
+- tuning:
+    regular grid for one parameter
+    random/hypercube grid for multiple parameters
+- zoom in on roc curves coord.cartesian (not xlim, ylim)
+- gains charts in threshold selection
+    statistics.com/auc-a-fatally-flawed-model-metric
