@@ -1,0 +1,35 @@
+The report is well written and has a good flow.
+Expand the EDA and the conclusions.
+I appreciate that you combined the writeup of log-reg and penalized log-reg. This is the first time I’ve seen that. 
+
+- Formatting:
+    o Well written and organized. 
+
+- Coding:
+    o Consistent approach o Focus on relevant information 
+    o Avoid hard-coding results (e.g. thresholds in line 649), use variables for this. You can also reference variables in the text, but try to use them at least inside the code blocks.
+
+- EDA:
+    o Add EDA that supports the binary classification model. 
+
+- Methodology:
+    o Selection of k value for kNN using one-standard-deviation rule is the wrong way round. 
+
+- Conclusions:
+    o The conclusions can be a bit more specific.#
+
+Notes (ideas) from class:
+
+ - data visualization:
+    o over plotting: smaller points, density plots, heatmaps
+    o density plots are prettier than boxplots and give more information
+- reduce memory size of plots: #| dev: png, #| dpi: 300
+- log transform y to lessen dispersion, especially for LDA
+- percentage of each component as part of the overall color
+- use a different color scale model (HSL)
+- tuning:
+    o regular grid for one parameter
+    o random/hypercube grid for multiple parameters
+- zoom in on roc curves coord.cartesian (not xlim, ylim)
+- gains charts in threshold selection
+    o statistics.com/auc-a-fatally-flawed-model-metric
