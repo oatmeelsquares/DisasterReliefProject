@@ -64,7 +64,7 @@ XYZ_fitcv <- fit_resamples(XYZ_final,
 XYZ_cv_preds <-  collect_predictions(XYZ_fitcv)
 XYZ_cv_metrics <- collect_metrics(XYZ_fitcv)
 
-# get ROC plot
+# get ROC plot for cross-validation
 XYZ_cv_roc <- roc_plot(XYZ_cv_preds, 'XYZ')
 
 # get threshold selection info

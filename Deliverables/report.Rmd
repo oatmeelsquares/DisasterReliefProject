@@ -39,8 +39,8 @@ This report explores various classification methods that could be useful in loca
 # load data from file
 file = "https://gedeck.github.io/DS-6030/project/HaitiPixels.csv"
 #file = '../data.csv'
-data <- read_csv(file) %>% 
-  mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
+data <- read_csv(file) #%>% 
+  #mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
 ```
 
 The dataset that will be used consists of class as a response variable and red, blue, green pixels as the predictor variables. There are a total of 63,241 records with no missing values. Pixels can have a range of 0-255 but for this dataset all pixels have a max of 255. Red and green pixels share a minimum value of 48 and blue has a minimum of 44. For Class there are five distinct values: Blue Tarp, Rooftop, Soil, Various Non-Tarp, and Vegetation.
@@ -215,7 +215,7 @@ knn_tune_vis <- autoplot(knn_tune, metric = 'roc_auc')
 knn_best_params <- select_best(knn_tune, metric = 'roc_auc')
 
 knn_final <- knn_wf %>% 
-  finalize_workflow(knn_best_params)              ## !! split to save final wf
+  finalize_workflow(knn_best_params)
 
 knn_fitcv <- fit_resamples(knn_final,
                            resamples,
@@ -223,10 +223,10 @@ knn_fitcv <- fit_resamples(knn_final,
                            )
 
 # collect predictions and roc_auc from cross-validated fit
-knn_cv_preds <-  collect_predictions(knn_fitcv) ## update var name
-knn_cv_metrics <- collect_metrics(knn_fitcv)    ## !!
+knn_cv_preds <-  collect_predictions(knn_fitcv)
+knn_cv_metrics <- collect_metrics(knn_fitcv)
 
-# get ROC plot
+# get ROC plot for cross-validation
 knn_cv_roc <- roc_plot(knn_cv_preds, 'KNN')   ## !! add model name, change var name
 
 # get threshold selection info
@@ -261,14 +261,17 @@ knn_threshold_metrics <- threshold_metrics(knn_threshold_preds,
                                            estimate = .pred_class)
 
 # get confusion matrix for chosen threshold
-knn_train_train_cm <- conf_mat(knn_threshold_preds, truth = Class, estimate = .pred_class) ## !! update var name
+knn_train_train_cm <- conf_mat(knn_threshold_preds,
+                               truth = Class,
+                               estimate = .pred_class) ## !! update var name
 
 ## PART II ##
 # fit final workflow to training data
-knn_fit <- fit(knn_final, data)
+knn_fit <- fit(knn_final, holdout)
 
 # get predictions and metrics for holdout data
-knn_test_preds <- threshold_preds(augment(knn_fit, new_data = data), knn_threshold)
+knn_test_preds <- threshold_preds(augment(knn_fit, new_data = data),
+                                  knn_threshold)
 knn_test_roc <- roc_plot(knn_test_preds)
 
 knn_test_metrics <- test_metrics(knn_test_preds)
@@ -317,19 +320,18 @@ lda_spec <- discrim_linear(mode = "classification") %>%
   set_engine('MASS')
 
 # define workflow
-lda_wf <- workflow() %>% 
+lda_final <- workflow() %>% 
   add_recipe(rec) %>% 
   add_model(lda_spec)
 
-
 # fit resamples
-lda_fitcv <- fit_resamples(lda_wf, resamples,  control=cv_control)
+lda_fitcv <- fit_resamples(lda_final, resamples,  control=cv_control)
 
 # collect predictions and roc_auc from cross-validated fit
 lda_cv_preds <-  collect_predictions(lda_fitcv)
-lda_metrics <- collect_metrics(lda_fitcv)
+lda_cv_metrics <- collect_metrics(lda_fitcv)
 
-lda_roc <- roc_plot(lda_cv_preds, 'LDA')
+lda_cv_roc <- roc_plot(lda_cv_preds, 'LDA')
 
 # get threshold selection info
 lda_thresh_perf <- probably::threshold_perf(lda_cv_preds,
@@ -396,19 +398,20 @@ qda_spec <- discrim_quad(mode = "classification") %>%
   set_engine('MASS')
 
 # define workflow
-qda_wf <- workflow() %>% 
+qda_final <- workflow() %>% 
   add_recipe(rec) %>% 
   add_model(qda_spec)
 
 
-#fit resamples
-qda_fitcv <- fit_resamples(qda_wf, resamples,  control=cv_control)
+# fit resamples
+qda_fitcv <- fit_resamples(qda_final, resamples,  control=cv_control)
 
 # collect predictions and roc_auc from cross-validated fit
 qda_cv_preds <-  collect_predictions(qda_fitcv)
-qda_metrics <- collect_metrics(qda_fitcv)
+qda_cv_metrics <- collect_metrics(qda_fitcv)
 
-qda_roc <- roc_plot(qda_cv_preds, 'QDA')
+# get ROC plot for cross-validation
+qda_cv_roc <- roc_plot(qda_cv_preds, 'QDA')
 
 # get threshold selection info
 qda_thresh_perf <- probably::threshold_perf(qda_cv_preds,
@@ -478,21 +481,20 @@ log_spec <- logistic_reg(mode = 'classification',
                             engine = 'glm')
                             
 # define workflow
-log_wf <- workflow() %>% 
+log_final <- workflow() %>% 
   add_recipe(rec) %>% 
   add_model(log_spec)
 
 
-# tune with grid (or fit resamples)
-
-log_fitcv <-fit_resamples(log_wf, resamples, control=cv_control)
+# fit resamples
+log_fitcv <- fit_resamples(log_final, resamples, control=cv_control)
 
 # collect predictions and roc_auc from cross-validated fit
-log_cv_preds <-  collect_predictions(log_fitcv)
-log_metrics <- collect_metrics(log_fitcv)
+log_cv_preds <- collect_predictions(log_fitcv)
+log_cv_metrics <- collect_metrics(log_fitcv)
 
-# get ROC plot
-log_roc <- roc_plot(log_cv_preds, 'Logistic Regression')
+# get ROC plot for cross-validation
+log_cv_roc <- roc_plot(log_cv_preds, 'Logistic Regression')
 
 # get threshold selection info
 log_thresh_perf <- probably::threshold_perf(log_cv_preds,
@@ -562,15 +564,16 @@ pen_tune_vis <- autoplot(pen_tune, metric = "roc_auc")
 # finalize workflow and fit resamples with best parameters
 pen_best_params <- select_best(pen_tune, metric="roc_auc")
 
-pen_fitcv <- pen_wf %>% 
-  finalize_workflow(pen_best_params) %>% 
-  fit_resamples(resamples,
-                control = cv_control
-                )
+pen_final <- finalize_workflow(pen_wf, pen_best_params) 
+
+pen_fitcv <- fit_resamples(pen_final,
+                           resamples,
+                           control = cv_control
+                           )
 
 # collect predictions and roc_auc from cross-validated fit
 pen_cv_preds <-  collect_predictions(pen_fitcv)
-pen_metrics <- collect_metrics(pen_fitcv)
+pen_cv_metrics <- collect_metrics(pen_fitcv)
 
 # get ROC plot
 pen_roc <- roc_plot(pen_cv_preds, 'Penalized LR')
@@ -662,11 +665,11 @@ To evaluate final model performance, we examine the models ROC AUC as a metric t
 ```{r compare-models}
 aucs <- ( log_roc + pen_roc  + knn_roc) / ( lda_roc + qda_roc )
 
-compare_metrics <- bind_rows(log_metrics %>% mutate(model = 'logistic regression'),
-                             pen_metrics %>% mutate(model = 'penalized logreg'),
-                             lda_metrics %>% mutate(model = 'LDA'),
-                             qda_metrics %>% mutate(model = 'QDA'),
-                             knn_metrics %>% mutate(model = 'KNN')
+compare_cv_metrics <- bind_rows(log_cv_metrics %>% mutate(model = 'logistic regression'),
+                             pen_cv_metrics %>% mutate(model = 'penalized logreg'),
+                             lda_cv_metrics %>% mutate(model = 'LDA'),
+                             qda_cv_metrics %>% mutate(model = 'QDA'),
+                             knn_cv_metrics %>% mutate(model = 'KNN')
                              ) %>% 
   pivot_wider(id_cols = model,
               names_from = .metric,
@@ -700,7 +703,7 @@ aucs
 ```
 
 ```{r table-2-metrics}
-compare_metrics %>% knitr::kable(caption = "Compare AUC of all models")
+compare_cv_metrics %>% knitr::kable(caption = "Compare AUC of all models")
 ```
 
 Table 3 shows the other metrics for each model at a given threshold (refer to section 3.5 for a discussion of threshold selection). All of the models perform similarly with KNN having the highest j-index and sensitivity. The j-index ranges from 0.8648 for the LDA to 0.9830 for the KNN model.  The sensitivity ranges from 0.9659 for the QDA to 0.9959 for the KNN model. 
