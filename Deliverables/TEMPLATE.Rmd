@@ -179,7 +179,7 @@ XYZ_train_train_cm <- conf_mat(XYZ_threshold_preds,
 XYZ_fit <- fit(XYZ_final, holdout)
 
 # get predictions and metrics for holdout data
-XYZ_test_preds <- threshold_preds(augment(XYZ_fit, new_data = data),
+XYZ_test_preds <- threshold_preds(augment(XYZ_fit, new_data = holdout),
                                   XYZ_threshold)
 XYZ_test_roc <- roc_plot(XYZ_test_preds)
 
