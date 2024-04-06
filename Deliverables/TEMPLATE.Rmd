@@ -1,0 +1,117 @@
+---
+title: "TEMPLATE"
+author: "Becky Desrosiers"
+date: "2024-04-06"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(tidymodels)
+library(ggcorrplot)
+library(GGally)
+library(discrim)
+library(patchwork)
+library(doParallel)
+cl <- makePSOCKcluster(parallel::detectCores(logical = FALSE))
+registerDoParallel(cl)
+
+# load data from file
+file = "https://gedeck.github.io/DS-6030/project/HaitiPixels.csv"
+#file = '../data.csv'
+data <- read_csv(file) %>% 
+  mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
+```
+
+
+```{r}
+## PART I ##
+# define model spec
+XYZ_spec <- ##########
+
+# define workflow
+XYZ_wf <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(XYZ_spec)
+
+# set tuning parameters
+XYZ_params <- extract_parameter_set_dials(XYZ_wf) %>% 
+  update(##########)
+
+# tune with grid (or fit resamples)
+XYZ_tune <- tune_grid(XYZ_wf,
+                      resamples = resamples,
+                      grid = ##########,
+                      control = cv_control
+                      )
+
+# get tuning results visualization
+XYZ_tune_vis <- autoplot(XYZ_tune, metric = 'roc_auc')
+
+# finalize workflow and fit resamples with best parameters
+XYZ_best_params <- select_best(XYZ_tune, metric = 'roc_auc')
+
+XYZ_final <- XYZ_wf %>% 
+  finalize_workflow(XYZ_best_params)
+
+XYZ_fitcv <- fit_resamples(XYZ_final,
+                           resamples,
+                           control = cv_control
+                           )
+
+# collect predictions and roc_auc from cross-validated fit
+XYZ_cv_preds <-  collect_predictions(XYZ_fitcv)
+XYZ_cv_metrics <- collect_metrics(XYZ_fitcv)
+
+# get ROC plot
+XYZ_cv_roc <- roc_plot(XYZ_cv_preds, 'XYZ')
+
+# get threshold selection info
+XYZ_thresh_perf <- probably::threshold_perf(XYZ_cv_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = threshold_metrics)
+
+# get threshold for best sensitivity
+XYZ_max_sens <- XYZ_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+XYZ_max_j <- XYZ_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+XYZ_tmetrics_plot <- threshold_metric_plot(XYZ_thresh_perf, XYZ_max_sens, XYZ_max_j)
+
+# get best threshold
+XYZ_threshold <- ##########
+
+# get predictions and metrics based on chosen threshold
+XYZ_threshold_preds <- threshold_preds(XYZ_cv_preds, XYZ_threshold)
+
+XYZ_threshold_metrics <- threshold_metrics(XYZ_threshold_preds,
+                                           truth = Class,
+                                           estimate = .pred_class)
+
+# get confusion matrix for chosen threshold
+XYZ_train_train_cm <- conf_mat(XYZ_threshold_preds,
+                               truth = Class,
+                               estimate = .pred_class)
+
+## PART II ##
+# fit final workflow to training data
+XYZ_fit <- fit(XYZ_final, holdout)
+
+# get predictions and metrics for holdout data
+XYZ_test_preds <- threshold_preds(augment(XYZ_fit, new_data = data),
+                                  XYZ_threshold)
+XYZ_test_roc <- roc_plot(XYZ_test_preds)
+
+XYZ_test_metrics <- test_metrics(XYZ_test_preds)
+```
+
