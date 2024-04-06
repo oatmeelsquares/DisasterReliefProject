@@ -147,18 +147,17 @@ threshold_metrics <- metric_set(j_index,
                                 accuracy,
                                 precision)
 
-test_metrics <- function(augment, model_name) {
+test_metrics <- function(model_test_preds) {
   bind_rows(
-    roc_auc(augment,
+    roc_auc(model_test_preds,
             truth = Class,
             .pred_Tarp,
             event_level = 'second'),
-    threshold_metrics(augment,
+    threshold_metrics(model_test_preds,
                       truth = Class,
                       estimate = .pred_class,
                       )
-  ) %>%
-    mutate(model = model_name)
+  )
 }
 
 
@@ -216,7 +215,7 @@ knn_tune_vis <- autoplot(knn_tune, metric = 'roc_auc')
 knn_best_params <- select_best(knn_tune, metric = 'roc_auc')
 
 knn_final <- knn_wf %>% 
-  finalize_workflow(knn_best_params)              ## !!
+  finalize_workflow(knn_best_params)              ## !! split to save final wf
 
 knn_fitcv <- fit_resamples(knn_final,
                            resamples,
@@ -224,11 +223,11 @@ knn_fitcv <- fit_resamples(knn_final,
                            )
 
 # collect predictions and roc_auc from cross-validated fit
-knn_cv_preds <-  collect_predictions(knn_fitcv) ## UPDATE VARIABLE NAMES
+knn_cv_preds <-  collect_predictions(knn_fitcv) ## update var name
 knn_cv_metrics <- collect_metrics(knn_fitcv)    ## !!
 
 # get ROC plot
-knn_cv_roc <- roc_plot(knn_cv_preds, 'KNN')   ## !!
+knn_cv_roc <- roc_plot(knn_cv_preds, 'KNN')   ## !! add model name, change var name
 
 # get threshold selection info
 knn_thresh_perf <- probably::threshold_perf(knn_cv_preds,
@@ -251,28 +250,28 @@ knn_max_j <- knn_thresh_perf %>%
 # get threshold metrics plot
 knn_tmetrics_plot <- threshold_metric_plot(knn_thresh_perf, knn_max_sens, knn_max_j)
 
-# get best threshold
-
+# get best threshold                ##
+knn_threshold <- knn_max_j[1, 1]    ## !! add
 
 # get predictions and metrics based on chosen threshold
-knn_threshold_preds <- threshold_preds(knn_cv_preds, 0.04)
+knn_threshold_preds <- threshold_preds(knn_cv_preds, knn_threshold)
 
 knn_threshold_metrics <- threshold_metrics(knn_threshold_preds,
                                            truth = Class,
                                            estimate = .pred_class)
 
 # get confusion matrix for chosen threshold
-knn_train_train_cm <- conf_mat(knn_threshold_preds, truth = Class, estimate = .pred_class) ## !!
+knn_train_train_cm <- conf_mat(knn_threshold_preds, truth = Class, estimate = .pred_class) ## !! update var name
 
 ## PART II ##
 # fit final workflow to training data
 knn_fit <- fit(knn_final, data)
 
 # get predictions and metrics for holdout data
-knn_test_preds <- threshold_preds(augment(knn_fit, new_data = data), 0.04)
+knn_test_preds <- threshold_preds(augment(knn_fit, new_data = data), knn_threshold)
 knn_test_roc <- roc_plot(knn_test_preds)
 
-knn_test_metrics <- 
+knn_test_metrics <- test_metrics(knn_test_preds)
 ```
 
 
