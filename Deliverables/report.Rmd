@@ -115,13 +115,22 @@ As established during the EDA, the proportion of Blue Tarps to all other classes
 # define functions to use later for convenience
 cv_control <- control_resamples(save_pred = TRUE)
 
-roc_plot <- function(model_preds) {
-  model_preds %>% 
+roc_plot <- function(model_preds, model_name) {
+  roc <- model_preds %>% 
     roc_curve(truth = Class,
               .pred_Tarp,
               event_level = 'second') %>% 
     autoplot()
+    zoom <- roc + coord_cartesian(xlim = c(0, 0.1), ylim = c(0.9, 1)) +
+    theme(axis.title.x=element_blank(), #remove x axis labels
+          axis.text.x = element_blank(),
+          axis.title.y=element_blank()  #remove y axis labels
+          )
+  roc +
+    labs(title = paste('ROC for', model_name, 'model')) +
+    inset_element(zoom, left = 0.4, right = 0.95, bottom = 0.05, top = 0.6)
 }
+
 
 threshold_metric_plot <- function(thresh_perf, max_sens, max_j) {
   ggplot(thresh_perf, aes(x = .threshold, y = .estimate, color = .metric)) +
@@ -137,6 +146,20 @@ threshold_metrics <- metric_set(j_index,
                                 specificity,
                                 accuracy,
                                 precision)
+
+test_metrics <- function(augment, model_name) {
+  bind_rows(
+    roc_auc(augment,
+            truth = Class,
+            .pred_Tarp,
+            event_level = 'second'),
+    threshold_metrics(augment,
+                      truth = Class,
+                      estimate = .pred_class,
+                      )
+  ) %>%
+    mutate(model = model_name)
+}
 
 
 threshold_preds <- function(preds, threshold) {
@@ -190,7 +213,7 @@ knn_tune <- tune_grid(knn_wf,
 knn_tune_vis <- autoplot(knn_tune, metric = 'roc_auc')
 
 # finalize workflow and fit resamples with best parameters
-knn_best_params <- select_best(knn_tune, neighbors, metric = 'roc_auc')
+knn_best_params <- select_best(knn_tune, metric = 'roc_auc')
 
 knn_final <- knn_wf %>% 
   finalize_workflow(knn_best_params)              ## !!
@@ -205,10 +228,10 @@ knn_cv_preds <-  collect_predictions(knn_fitcv) ## UPDATE VARIABLE NAMES
 knn_cv_metrics <- collect_metrics(knn_fitcv)    ## !!
 
 # get ROC plot
-knn_cv_roc <- roc_plot(knn_preds)   ## !!
+knn_cv_roc <- roc_plot(knn_cv_preds, 'KNN')   ## !!
 
 # get threshold selection info
-knn_thresh_perf <- probably::threshold_perf(knn_preds,
+knn_thresh_perf <- probably::threshold_perf(knn_cv_preds,
                                             Class,
                                             .pred_Tarp,
                                             thresholds = seq(0.01, 0.99, 0.01),
@@ -228,23 +251,28 @@ knn_max_j <- knn_thresh_perf %>%
 # get threshold metrics plot
 knn_tmetrics_plot <- threshold_metric_plot(knn_thresh_perf, knn_max_sens, knn_max_j)
 
+# get best threshold
+
+
 # get predictions and metrics based on chosen threshold
-knn_threshold_preds <- knn_preds %>% 
-  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.04, 'Tarp', 'Non-Tarp')))
+knn_threshold_preds <- threshold_preds(knn_cv_preds, 0.04)
 
 knn_threshold_metrics <- threshold_metrics(knn_threshold_preds,
                                            truth = Class,
                                            estimate = .pred_class)
 
 # get confusion matrix for chosen threshold
-knn_train_cm <- conf_mat(knn_threshold_preds, truth = Class, estimate = .pred_class) ## !!
+knn_train_train_cm <- conf_mat(knn_threshold_preds, truth = Class, estimate = .pred_class) ## !!
 
 ## PART II ##
+# fit final workflow to training data
+knn_fit <- fit(knn_final, data)
+
 # get predictions and metrics for holdout data
-knn_test_preds <- augment(knn_final, new_data = holdout)
+knn_test_preds <- threshold_preds(augment(knn_fit, new_data = data), 0.04)
 knn_test_roc <- roc_plot(knn_test_preds)
 
-knn_test_metrics
+knn_test_metrics <- 
 ```
 
 
@@ -276,7 +304,7 @@ knn_tmetrics_plot
 Our final model has k = 8 nearest neighbors and a selection threshold of 0.04. The corresponding confusion matrix is shown below.
 
 ```{r knn-conf-mat}
-knn_cm
+knn_train_cm
 ```
 
 The confusion matrix shows that our final model misses only 26 Blue Tarp pixels and falsely identifies 251 Non-Tarp pixels. The overall accuracy of the model is 0.9956, with sensitivity of 0.9959. The precision is also very high: 0.9996. The specificity is 0.9871 and the j-index comes out to 0.9830.
@@ -299,13 +327,13 @@ lda_wf <- workflow() %>%
 lda_fitcv <- fit_resamples(lda_wf, resamples,  control=cv_control)
 
 # collect predictions and roc_auc from cross-validated fit
-lda_preds <-  collect_predictions(lda_fitcv)
+lda_cv_preds <-  collect_predictions(lda_fitcv)
 lda_metrics <- collect_metrics(lda_fitcv)
 
-lda_roc <- roc_plot(lda_preds)
+lda_roc <- roc_plot(lda_cv_preds, 'LDA')
 
 # get threshold selection info
-lda_thresh_perf <- probably::threshold_perf(lda_preds,
+lda_thresh_perf <- probably::threshold_perf(lda_cv_preds,
                                             Class,
                                             .pred_Tarp,
                                             thresholds = seq(0.01, 0.99, 0.01),
@@ -329,14 +357,14 @@ lda_max_j <- lda_thresh_perf %>%
 lda_tmetrics_plot <- threshold_metric_plot(lda_thresh_perf, lda_max_sens, lda_max_j)
 
 # get predictions and metrics based on chosen threshold
-lda_threshold_preds <- lda_preds %>% 
+lda_threshold_preds <- lda_cv_preds %>% 
  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.01, 'Tarp', 'Non-Tarp')))
 
 lda_threshold_metrics <- threshold_metrics(lda_threshold_preds, truth = Class, estimate = .pred_class)
 
 
 # get confusion matrix for chosen threshold
-lda_cm <- conf_mat(lda_threshold_preds, truth = Class, estimate = .pred_class)
+lda_train_cm <- conf_mat(lda_threshold_preds, truth = Class, estimate = .pred_class)
 
 ```
 
@@ -355,7 +383,7 @@ lda_tmetrics_plot
 These displayed metrics are accuracy, j-index, sensitivity, and specificity, but we are most interested in sensitivity and j-index. Both sensitivity and j-index perform the best at a threshold of around 0.01. This value of 0.01 will be the chosen threshold for our model when utilizing it for predictions. After threshold selection, the confusion matrix for the model was assessed where we explored the number of false negatives, false positives, and true positives. We found that while we miss some blue tarp pixels, we locate many more, while also limiting the number of false positives.  
 
 ```{r lda-cm}
-lda_cm
+lda_train_cm
 ```
 
  
@@ -378,13 +406,13 @@ qda_wf <- workflow() %>%
 qda_fitcv <- fit_resamples(qda_wf, resamples,  control=cv_control)
 
 # collect predictions and roc_auc from cross-validated fit
-qda_preds <-  collect_predictions(qda_fitcv)
+qda_cv_preds <-  collect_predictions(qda_fitcv)
 qda_metrics <- collect_metrics(qda_fitcv)
 
-qda_roc <- roc_plot(qda_preds)
+qda_roc <- roc_plot(qda_cv_preds, 'QDA')
 
 # get threshold selection info
-qda_thresh_perf <- probably::threshold_perf(qda_preds,
+qda_thresh_perf <- probably::threshold_perf(qda_cv_preds,
                                             Class,
                                             .pred_Tarp,
                                             thresholds = seq(0.01, 0.99, 0.01),
@@ -409,14 +437,14 @@ qda_tmetrics_plot <- threshold_metric_plot(qda_thresh_perf, qda_max_sens, qda_ma
 
 
 # get predictions and metrics based on chosen threshold
-qda_threshold_preds <- qda_preds %>% 
+qda_threshold_preds <- qda_cv_preds %>% 
  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.015, 'Tarp', 'Non-Tarp')))
 
 qda_threshold_metrics <- threshold_metrics(qda_threshold_preds, truth = Class, estimate = .pred_class)
 
 
 # get confusion matrix for chosen threshold
-qda_cm <- conf_mat(qda_threshold_preds, truth = Class, estimate = .pred_class)
+qda_train_cm <- conf_mat(qda_threshold_preds, truth = Class, estimate = .pred_class)
 ```
 
 
@@ -438,7 +466,7 @@ Since sensitivity and j-index are both important for this data, we decided to ch
 After we selected the appropriate threshold for our model, we then assessed the confusion matrix with the selected threshold. The model performed extremely well at this selected threshold in terms of locating tarp pixels as there are only 5 that are missed. However, when choosing a final model, it will be important to keep in mind that the number of false positives is fairly high and may impact our final model choice. 
 
 ```{r qda-cm}
-qda_cm
+qda_train_cm
 ```
 
 The QDA model at the selected threshold has a sensitivity of 0.9717, accuracy of 0.9725, and precision of 0.9999. These metrics reveal that the QDA model performs very well on the data and can correctly identify many of the tarps. The QDA model appears to perform better than the LDA model so it seems that the data benefits from some flexibility in the predictive algorithm. 
@@ -461,14 +489,14 @@ log_wf <- workflow() %>%
 log_fitcv <-fit_resamples(log_wf, resamples, control=cv_control)
 
 # collect predictions and roc_auc from cross-validated fit
-log_preds <-  collect_predictions(log_fitcv)
+log_cv_preds <-  collect_predictions(log_fitcv)
 log_metrics <- collect_metrics(log_fitcv)
 
 # get ROC plot
-log_roc <- roc_plot(log_preds)
+log_roc <- roc_plot(log_cv_preds, 'Logistic Regression')
 
 # get threshold selection info
-log_thresh_perf <- probably::threshold_perf(log_preds,
+log_thresh_perf <- probably::threshold_perf(log_cv_preds,
                                             Class,
                                             .pred_Tarp,
                                             thresholds = seq(0.01, 0.99, 0.01),
@@ -492,7 +520,7 @@ log_max_j <- log_thresh_perf %>%
 log_tmetrics_plot <- threshold_metric_plot(log_thresh_perf, log_max_sens, log_max_j)
 
 # get predictions and metrics based on chosen threshold
-log_threshold_preds <- log_preds %>% 
+log_threshold_preds <- log_cv_preds %>% 
   mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.04, 'Tarp', 'Non-Tarp')))
 
 log_threshold_metrics <- threshold_metrics(log_threshold_preds,
@@ -500,7 +528,7 @@ log_threshold_metrics <- threshold_metrics(log_threshold_preds,
                                            estimate = .pred_class)
 
 # get confusion matrix for chosen threshold
-log_cm <- conf_mat(log_threshold_preds, truth = Class, estimate = .pred_class)
+log_train_cm <- conf_mat(log_threshold_preds, truth = Class, estimate = .pred_class)
 ```
 
 
@@ -542,14 +570,14 @@ pen_fitcv <- pen_wf %>%
                 )
 
 # collect predictions and roc_auc from cross-validated fit
-pen_preds <-  collect_predictions(pen_fitcv)
+pen_cv_preds <-  collect_predictions(pen_fitcv)
 pen_metrics <- collect_metrics(pen_fitcv)
 
 # get ROC plot
-pen_roc <- roc_plot(pen_preds)
+pen_roc <- roc_plot(pen_cv_preds, 'Penalized LR')
 
 # get threshold selection info
-pen_thresh_perf <- probably::threshold_perf(pen_preds,
+pen_thresh_perf <- probably::threshold_perf(pen_cv_preds,
                                             Class,
                                             .pred_Tarp,
                                             thresholds = seq(0.01, 0.99, 0.01),
@@ -574,7 +602,7 @@ pen_tmetrics_plot <- threshold_metric_plot(pen_thresh_perf, pen_max_sens, pen_ma
 
 # get predictions and metrics based on chosen threshold
 # the optimal threshold for the sens is .01
-pen_threshold_preds <- pen_preds %>% 
+pen_threshold_preds <- pen_cv_preds %>% 
   mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.04, 'Tarp', 'Non-Tarp')))
 
 pen_threshold_metrics <- threshold_metrics(pen_threshold_preds,
@@ -582,7 +610,7 @@ pen_threshold_metrics <- threshold_metrics(pen_threshold_preds,
                                            estimate = .pred_class)
 
 # get confusion matrix for chosen threshold
-pen_cm <- conf_mat(pen_threshold_preds, truth = Class, estimate = .pred_class)
+pen_train_cm <- conf_mat(pen_threshold_preds, truth = Class, estimate = .pred_class)
 ```
 
 There are two types of logistic regression models that are used, a standard logistic regression model and a penalized logistic regression model. While the logistic regression model does not have any parameters to tune, the penalized logistic regression model is a model that applies a penalty value on predictor variables to attempt to shrink less important variables.
@@ -621,11 +649,11 @@ pen_tmetrics_plot
 The confusion matrices below shows the breakout of our values at the optimal thresholds for the Logistic Regression and Peanalized Logistic Regression Model respecively.
 
 ```{r log-conf-mat}
-log_cm
+log_train_cm
 ```
 
 ```{r pen-conf-mat}
-pen_cm
+pen_train_cm
 ```
 
 To evaluate final model performance, we examine the models ROC AUC as a metric that captures its full performance across all thresholds. This flexibility allows leeway in case of changing threshold selection for prioritizing a different goal outcome. The AUC of the optimal logistic regression model is 0.9985 which indicates a very high performing model. The AUC of the optimal penalized logistic regression model is 0.9986 which also is a very high value.
