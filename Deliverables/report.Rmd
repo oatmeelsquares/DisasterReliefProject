@@ -227,7 +227,7 @@ knn_cv_preds <-  collect_predictions(knn_fitcv)
 knn_cv_metrics <- collect_metrics(knn_fitcv)
 
 # get ROC plot for cross-validation
-knn_cv_roc <- roc_plot(knn_cv_preds, 'KNN')   ## !! add model name, change var name
+knn_cv_roc <- roc_plot(knn_cv_preds, 'KNN')
 
 # get threshold selection info
 knn_thresh_perf <- probably::threshold_perf(knn_cv_preds,
@@ -261,20 +261,24 @@ knn_threshold_metrics <- threshold_metrics(knn_threshold_preds,
                                            estimate = .pred_class)
 
 # get confusion matrix for chosen threshold
-knn_train_train_cm <- conf_mat(knn_threshold_preds,
+knn_train_cm <- conf_mat(knn_threshold_preds,
                                truth = Class,
-                               estimate = .pred_class) ## !! update var name
+                               estimate = .pred_class)
 
 ## PART II ##
 # fit final workflow to training data
 knn_fit <- fit(knn_final, holdout)
 
 # get predictions and metrics for holdout data
-knn_test_preds <- threshold_preds(augment(knn_fit, new_data = data),
+knn_test_preds <- threshold_preds(augment(knn_fit, new_data = holdout),
                                   knn_threshold)
 knn_test_roc <- roc_plot(knn_test_preds)
 
 knn_test_metrics <- test_metrics(knn_test_preds)
+
+knn_test_cm <- conf_mat(knn_test_preds,
+                        truth = Class,
+                        estimate = .pred_class)
 ```
 
 
@@ -357,9 +361,12 @@ lda_max_j <- lda_thresh_perf %>%
 # get threshold metrics plot
 lda_tmetrics_plot <- threshold_metric_plot(lda_thresh_perf, lda_max_sens, lda_max_j)
 
+# get best threshold
+lda_threshold <- lda_max_sens[1, 1]
+
 # get predictions and metrics based on chosen threshold
 lda_threshold_preds <- lda_cv_preds %>% 
- mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.01, 'Tarp', 'Non-Tarp')))
+ mutate(.pred_class = factor(ifelse(.pred_Tarp >= lda_threshold, 'Tarp', 'Non-Tarp')))
 
 lda_threshold_metrics <- threshold_metrics(lda_threshold_preds, truth = Class, estimate = .pred_class)
 
@@ -367,6 +374,20 @@ lda_threshold_metrics <- threshold_metrics(lda_threshold_preds, truth = Class, e
 # get confusion matrix for chosen threshold
 lda_train_cm <- conf_mat(lda_threshold_preds, truth = Class, estimate = .pred_class)
 
+## PART II ##
+# fit final workflow to training data
+lda_fit <- fit(lda_final, holdout)
+
+# get predictions and metrics for holdout data
+lda_test_preds <- threshold_preds(augment(lda_fit, new_data = holdout),
+                                  lda_threshold)
+lda_test_roc <- roc_plot(lda_test_preds)
+
+lda_test_metrics <- test_metrics(lda_test_preds)
+
+lda_test_cm <- conf_mat(lda_test_preds,
+                        truth = Class,
+                        estimate = .pred_class)
 ```
 
 We built and trained the LDA model using our data set and then assessed the model’s performance metrics. We found that the model has an AUC of 0.9888, which means that it performs well on the data and classifies blue tarp pixels versus non-tarp pixels better than a random model. The next step was choosing the appropriate threshold for this model. Figure 5 displays the threshold plot with the plotted values of the chosen metrics from 0 to 1.   
@@ -437,16 +458,33 @@ qda_max_j <- qda_thresh_perf %>%
 # get threshold metrics plot
 qda_tmetrics_plot <- threshold_metric_plot(qda_thresh_perf, qda_max_sens, qda_max_j)
 
+# get best threshold
+qda_threshold <- (qda_max_sens[1, 1] + qda_max_j[1, 1]) / 2
 
 # get predictions and metrics based on chosen threshold
 qda_threshold_preds <- qda_cv_preds %>% 
- mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.015, 'Tarp', 'Non-Tarp')))
+ mutate(.pred_class = factor(ifelse(.pred_Tarp >= qda_threshold, 'Tarp', 'Non-Tarp')))
 
 qda_threshold_metrics <- threshold_metrics(qda_threshold_preds, truth = Class, estimate = .pred_class)
 
 
 # get confusion matrix for chosen threshold
 qda_train_cm <- conf_mat(qda_threshold_preds, truth = Class, estimate = .pred_class)
+
+## PART II ##
+# fit final workflow to training data
+qda_fit <- fit(qda_final, holdout)
+
+# get predictions and metrics for holdout data
+qda_test_preds <- threshold_preds(augment(qda_fit, new_data = holdout),
+                                  qda_threshold)
+qda_test_roc <- roc_plot(qda_test_preds)
+
+qda_test_metrics <- test_metrics(qda_test_preds)
+
+qda_test_cm <- conf_mat(qda_test_preds,
+                        truth = Class,
+                        estimate = .pred_class)
 ```
 
 
@@ -520,9 +558,12 @@ log_max_j <- log_thresh_perf %>%
 # get threshold metrics plot
 log_tmetrics_plot <- threshold_metric_plot(log_thresh_perf, log_max_sens, log_max_j)
 
+# get best threshold
+log_threshold <- log_max_j[1, 1]
+
 # get predictions and metrics based on chosen threshold
 log_threshold_preds <- log_cv_preds %>% 
-  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.04, 'Tarp', 'Non-Tarp')))
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= log_threshold, 'Tarp', 'Non-Tarp')))
 
 log_threshold_metrics <- threshold_metrics(log_threshold_preds,
                                            truth = Class,
@@ -530,6 +571,21 @@ log_threshold_metrics <- threshold_metrics(log_threshold_preds,
 
 # get confusion matrix for chosen threshold
 log_train_cm <- conf_mat(log_threshold_preds, truth = Class, estimate = .pred_class)
+
+## PART II ##
+# fit final workflow to training data
+log_fit <- fit(log_final, holdout)
+
+# get predictions and metrics for holdout data
+log_test_preds <- threshold_preds(augment(log_fit, new_data = holdout),
+                                  log_threshold)
+log_test_roc <- roc_plot(log_test_preds)
+
+log_test_metrics <- test_metrics(log_test_preds)
+
+log_test_cm <- conf_mat(log_test_preds,
+                        truth = Class,
+                        estimate = .pred_class)
 ```
 
 
@@ -575,8 +631,8 @@ pen_fitcv <- fit_resamples(pen_final,
 pen_cv_preds <-  collect_predictions(pen_fitcv)
 pen_cv_metrics <- collect_metrics(pen_fitcv)
 
-# get ROC plot
-pen_roc <- roc_plot(pen_cv_preds, 'Penalized LR')
+# get ROC plot for cross-validation
+pen_cv_roc <- roc_plot(pen_cv_preds, 'Penalized LR')
 
 # get threshold selection info
 pen_thresh_perf <- probably::threshold_perf(pen_cv_preds,
@@ -602,10 +658,12 @@ pen_max_j <- pen_thresh_perf %>%
 # get threshold metrics plot
 pen_tmetrics_plot <- threshold_metric_plot(pen_thresh_perf, pen_max_sens, pen_max_j)
 
+# get best threshold
+pen_threshold <- pen_max_j[1, 1]
+
 # get predictions and metrics based on chosen threshold
-# the optimal threshold for the sens is .01
 pen_threshold_preds <- pen_cv_preds %>% 
-  mutate(.pred_class = factor(ifelse(.pred_Tarp >= 0.04, 'Tarp', 'Non-Tarp')))
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= pen_threshold, 'Tarp', 'Non-Tarp')))
 
 pen_threshold_metrics <- threshold_metrics(pen_threshold_preds,
                                            truth = Class,
@@ -613,6 +671,21 @@ pen_threshold_metrics <- threshold_metrics(pen_threshold_preds,
 
 # get confusion matrix for chosen threshold
 pen_train_cm <- conf_mat(pen_threshold_preds, truth = Class, estimate = .pred_class)
+
+## PART II ##
+# fit final workflow to training data
+pen_fit <- fit(pen_final, holdout)
+
+# get predictions and metrics for holdout data
+pen_test_preds <- threshold_preds(augment(pen_fit, new_data = holdout),
+                                  pen_threshold)
+pen_test_roc <- roc_plot(pen_test_preds)
+
+pen_test_metrics <- test_metrics(pen_test_preds)
+
+pen_test_cm <- conf_mat(pen_test_preds,
+                        truth = Class,
+                        estimate = .pred_class)
 ```
 
 There are two types of logistic regression models that are used, a standard logistic regression model and a penalized logistic regression model. While the logistic regression model does not have any parameters to tune, the penalized logistic regression model is a model that applies a penalty value on predictor variables to attempt to shrink less important variables.
@@ -663,29 +736,58 @@ To evaluate final model performance, we examine the models ROC AUC as a metric t
 
 
 ```{r compare-models}
-aucs <- ( log_roc + pen_roc  + knn_roc) / ( lda_roc + qda_roc )
+# get all cross-validation plots and metrics
+cv_rocs <- ( log_cv_roc + pen_cv_roc  + knn_cv_roc) / ( lda_cv_roc + qda_cv_roc )
 
-compare_cv_metrics <- bind_rows(log_cv_metrics %>% mutate(model = 'logistic regression'),
-                             pen_cv_metrics %>% mutate(model = 'penalized logreg'),
-                             lda_cv_metrics %>% mutate(model = 'LDA'),
-                             qda_cv_metrics %>% mutate(model = 'QDA'),
-                             knn_cv_metrics %>% mutate(model = 'KNN')
-                             ) %>% 
+compare_cv_metrics <- bind_rows(
+  log_cv_metrics %>% mutate(model = 'logistic regression'),
+  pen_cv_metrics %>% mutate(model = 'penalized logreg'),
+  lda_cv_metrics %>% mutate(model = 'LDA'),
+  qda_cv_metrics %>% mutate(model = 'QDA'),
+  knn_cv_metrics %>% mutate(model = 'KNN'),
+  ens_cv_metrics %>% mutate(model = 'ensemble'),
+  svml_cv_metrics %>% mutate(model = 'linear SVM'),
+  svmp_cv_metrics %>% mutate(model = 'polynomial SVM'),
+  svmr_cv_metrics %>% mutate(model = 'radial SVM')
+) %>% 
   pivot_wider(id_cols = model,
               names_from = .metric,
               values_from = mean) %>% 
   dplyr::select(model, roc_auc)
 
-compare_threshold_metrics <- bind_rows(log_threshold_metrics %>% mutate(model = 'logistic regression'),
-                             pen_threshold_metrics %>% mutate(model = 'penalized logreg'),
-                             lda_threshold_metrics %>% mutate(model = 'LDA'),
-                             qda_threshold_metrics %>% mutate(model = 'QDA'),
-                             knn_threshold_metrics %>% mutate(model = 'KNN')
-                             ) %>% 
+compare_threshold_metrics <- bind_rows(
+  log_threshold_metrics %>% mutate(model = 'logistic regression'),
+  pen_threshold_metrics %>% mutate(model = 'penalized logreg'),
+  lda_threshold_metrics %>% mutate(model = 'LDA'),
+  qda_threshold_metrics %>% mutate(model = 'QDA'),
+  knn_threshold_metrics %>% mutate(model = 'KNN'),
+  ens_threshold_metrics %>% mutate(model = 'ensemble'),
+  svml_threshold_metrics %>% mutate(model = 'linear SVM'),
+  svmp_threshold_metrics %>% mutate(model = 'polynomial SVM'),
+  svmr_threshold_metrics %>% mutate(model = 'radial SVM')
+) %>% 
   pivot_wider(id_cols = model,
               names_from = .metric,
               values_from = .estimate) %>% 
   mutate(threshold = c(.05, .04, .01, .015, .04)) 
+
+# get all metrics and plots on the holdout dataset
+test_rocs <- ( log_test_roc + pen_test_roc  + knn_test_roc) / ( lda_test_roc + qda_test_roc )
+
+compare_test_metrics <- bind_rows(
+  log_test_metrics %>% mutate(model = 'logistic regression'),
+  pen_test_metrics %>% mutate(model = 'penalized logreg'),
+  lda_test_metrics %>% mutate(model = 'LDA'),
+  qda_test_metrics %>% mutate(model = 'QDA'),
+  knn_test_metrics %>% mutate(model = 'KNN'),
+  ens_test_metrics %>% mutate(model = 'ensemble'),
+  svml_test_metrics %>% mutate(model = 'linear SVM'),
+  svmp_test_metrics %>% mutate(model = 'polynomial SVM'),
+  svmr_test_metrics %>% mutate(model = 'radial SVM')
+) %>% 
+  pivot_wider(id_cols = model,
+              names_from = .metric,
+              values_from = mean)
 
 ```
 
@@ -699,20 +801,25 @@ When making a final selection and recommendation of what model to use we first b
 #| fig.cap: ROC plots for all models from top row Logistic, Penalized, KNN  Bottom row LDA, QDA
 #| dev: "png"
 #| dpi: 100
-aucs
+cv_rocs
 ```
 
 ```{r table-2-metrics}
-compare_cv_metrics %>% knitr::kable(caption = "Compare AUC of all models")
+compare_cv_metrics %>% knitr::kable(caption = "Comparison of cross-validated AUC for all models")
 ```
 
 Table 3 shows the other metrics for each model at a given threshold (refer to section 3.5 for a discussion of threshold selection). All of the models perform similarly with KNN having the highest j-index and sensitivity. The j-index ranges from 0.8648 for the LDA to 0.9830 for the KNN model.  The sensitivity ranges from 0.9659 for the QDA to 0.9959 for the KNN model. 
 
 ```{r table-3-metrics}
-compare_threshold_metrics %>% knitr::kable(caption = "Compare Threshold Metrics of all models")
+compare_threshold_metrics %>% knitr::kable(caption = "Comparison of Threshold Metrics for all models")
 ```
 
 
+
+
+```{r table-4-metrics}
+compare_test_metrics %>% knitr::kable(caption = "Comparison of Metrics on Holdout Dataset for all models")
+```
 
 # Conclusion
 
