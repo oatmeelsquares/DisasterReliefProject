@@ -184,5 +184,9 @@ XYZ_test_preds <- threshold_preds(augment(XYZ_fit, new_data = holdout),
 XYZ_test_roc <- roc_plot(XYZ_test_preds)
 
 XYZ_test_metrics <- test_metrics(XYZ_test_preds)
+
+XYZ_test_cm <- conf_mat(XYZ_test_preds,
+                        truth = Class,
+                        estimate = .pred_class)
 ```
 
