@@ -186,11 +186,10 @@ knn_tune <- tune_grid(knn_wf,
                       )
 
 # get tuning results visualization
-knn_tune_vis <- autoplot(knn_tune, metric = 'roc_auc') +
-  geom_hline(yintercept = (0.9943110 - 0.001139833), linetype = 'dashed')
+knn_tune_vis <- autoplot(knn_tune, metric = 'roc_auc')
 
 # finalize workflow and fit resamples with best parameters
-knn_best_params <- select_by_one_std_err(knn_tune, neighbors, metric = 'roc_auc')
+knn_best_params <- select_best(knn_tune, neighbors, metric = 'roc_auc')
 
 knn_fitcv <- knn_wf %>% 
   finalize_workflow(knn_best_params) %>% 
