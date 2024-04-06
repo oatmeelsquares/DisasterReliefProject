@@ -1,3 +1,19 @@
+Notes on our project:
+
+- include shift to binary poblem in EDA
+- don't say definitely 50% will be a bad threshold
+- larger K is simpler
+- add titles to patchwork graphs
+
+- what does performance difference betwen LDA and QDA tell you about the data? (Conclusion 3)
+- add zooming to ROC curves
+
+
+
+
+
+
+
 The report is well written and has a good flow.
 Expand the EDA and the conclusions.
 I appreciate that you combined the writeup of log-reg and penalized log-reg. This is the first time I’ve seen that. 
@@ -6,7 +22,8 @@ I appreciate that you combined the writeup of log-reg and penalized log-reg. Thi
     o Well written and organized. 
 
 - Coding:
-    o Consistent approach o Focus on relevant information 
+    o Consistent approach 
+    o Focus on relevant information 
     o Avoid hard-coding results (e.g. thresholds in line 649), use variables for this. You can also reference variables in the text, but try to use them at least inside the code blocks.
 
 - EDA:
