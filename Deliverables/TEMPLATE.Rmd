@@ -24,6 +24,77 @@ data <- read_csv(file) %>%
   mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
 ```
 
+```{r convenience-functions}
+# define functions to use later for convenience
+cv_control <- control_resamples(save_pred = TRUE)
+
+roc_plot <- function(model_preds, model_name) {
+  roc <- model_preds %>% 
+    roc_curve(truth = Class,
+              .pred_Tarp,
+              event_level = 'second') %>% 
+    autoplot()
+    zoom <- roc + coord_cartesian(xlim = c(0, 0.1), ylim = c(0.9, 1)) +
+    theme(axis.title.x=element_blank(), #remove x axis labels
+          axis.text.x = element_blank(),
+          axis.title.y=element_blank()  #remove y axis labels
+          )
+  roc +
+    labs(title = paste('ROC for', model_name, 'model')) +
+    inset_element(zoom, left = 0.4, right = 0.95, bottom = 0.05, top = 0.6)
+}
+
+
+threshold_metric_plot <- function(thresh_perf, max_sens, max_j) {
+  ggplot(thresh_perf, aes(x = .threshold, y = .estimate, color = .metric)) +
+    geom_line() +
+    geom_vline(data = max_sens, aes(xintercept = .threshold, color = .metric)) +
+    geom_vline(data = max_j, aes(xintercept = .threshold, color = .metric)) +
+    scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+    labs(x = 'Threshold', y = 'Metric value')
+}
+
+threshold_metrics <- metric_set(j_index,
+                                sensitivity,
+                                specificity,
+                                accuracy,
+                                precision)
+
+test_metrics <- function(model_test_preds) {
+  bind_rows(
+    roc_auc(model_test_preds,
+            truth = Class,
+            .pred_Tarp,
+            event_level = 'second'),
+    threshold_metrics(model_test_preds,
+                      truth = Class,
+                      estimate = .pred_class,
+                      )
+  )
+}
+
+
+threshold_preds <- function(preds, threshold) {
+    preds <- preds %>% 
+    mutate(.pred_class = factor(ifelse(.pred_Tarp >= threshold, 'Tarp', 'Non-Tarp')))
+}
+
+```
+
+
+```{r model-setup}
+# prepare resamples for 10-fold cross-validation
+set.seed(6030)
+resamples <- vfold_cv(data, v = 10, strata=Class)
+
+# define formula
+formula <- Class ~ Red + Green + Blue
+
+# define basic recipe
+rec <- recipe(formula, data = data)
+```
+
+
 
 ```{r}
 ## PART I ##
