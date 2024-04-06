@@ -39,8 +39,8 @@ This report explores various classification methods that could be useful in loca
 # load data from file
 file = "https://gedeck.github.io/DS-6030/project/HaitiPixels.csv"
 #file = '../data.csv'
-data <- read_csv(file) #%>% 
-  #mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
+data <- read_csv(file) %>% 
+  mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
 ```
 
 The dataset that will be used consists of class as a response variable and red, blue, green pixels as the predictor variables. There are a total of 63,241 records with no missing values. Pixels can have a range of 0-255 but for this dataset all pixels have a max of 255. Red and green pixels share a minimum value of 48 and blue has a minimum of 44. For Class there are five distinct values: Blue Tarp, Rooftop, Soil, Various Non-Tarp, and Vegetation.
@@ -164,6 +164,7 @@ rec <- recipe(formula, data = data)
 
 
 ```{r knn}
+## PART I ##
 # define model spec
 knn_spec <- nearest_neighbor(mode = 'classification',
                             engine = 'kknn',
@@ -191,18 +192,20 @@ knn_tune_vis <- autoplot(knn_tune, metric = 'roc_auc')
 # finalize workflow and fit resamples with best parameters
 knn_best_params <- select_best(knn_tune, neighbors, metric = 'roc_auc')
 
-knn_fitcv <- knn_wf %>% 
-  finalize_workflow(knn_best_params) %>% 
-  fit_resamples(resamples,
-                control = cv_control
-                )
+knn_final <- knn_wf %>% 
+  finalize_workflow(knn_best_params)              ## !!
+
+knn_fitcv <- fit_resamples(knn_final,
+                           resamples,
+                           control = cv_control
+                           )
 
 # collect predictions and roc_auc from cross-validated fit
-knn_preds <-  collect_predictions(knn_fitcv)
-knn_metrics <- collect_metrics(knn_fitcv)
+knn_cv_preds <-  collect_predictions(knn_fitcv) ## UPDATE VARIABLE NAMES
+knn_cv_metrics <- collect_metrics(knn_fitcv)    ## !!
 
 # get ROC plot
-knn_roc <- roc_plot(knn_preds)
+knn_cv_roc <- roc_plot(knn_preds)   ## !!
 
 # get threshold selection info
 knn_thresh_perf <- probably::threshold_perf(knn_preds,
@@ -234,7 +237,14 @@ knn_threshold_metrics <- threshold_metrics(knn_threshold_preds,
                                            estimate = .pred_class)
 
 # get confusion matrix for chosen threshold
-knn_cm <- conf_mat(knn_threshold_preds, truth = Class, estimate = .pred_class)
+knn_train_cm <- conf_mat(knn_threshold_preds, truth = Class, estimate = .pred_class) ## !!
+
+## PART II ##
+# get predictions and metrics for holdout data
+knn_test_preds <- augment(knn_final, new_data = holdout)
+knn_test_roc <- roc_plot(knn_test_preds)
+
+knn_test_metrics
 ```
 
 
