@@ -1,0 +1,68 @@
+---
+title: "Disaster Relief Project, Part 2 Preprocessing"
+author: "Abner Casillas-colon"
+date: "2024-04-07"
+output: pdf_document
+---
+
+```{r r-setup, include = FALSE, cache = FALSE}
+knitr::opts_chunk$set(cache = TRUE,
+                      autodep = TRUE,
+                      message = FALSE,
+                      warning = FALSE,
+                      echo = FALSE
+                      )
+library(tidyverse)
+library(tidymodels)
+library(ggcorrplot)
+library(GGally)
+library(discrim)
+library(patchwork)
+library(doParallel)
+cl <- makePSOCKcluster(parallel::detectCores(logical = FALSE))
+registerDoParallel(cl)
+```
+
+```{r}
+
+columns = c('ID', 'X','Y','Map X','Map Y','Lat','Lon','B1','B2','B3')
+
+data_67_BT <- read_table("orthovnir067_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Tarp"))
+
+data_57_NON <- read_table("orthovnir057_ROI_NON_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
+
+data_67_NOT <- read_table("orthovnir067_ROI_NOT_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
+
+data_69_NOT <- read_table("orthovnir069_ROI_NOT_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
+
+data_69_bt <- read_table("orthovnir069_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Tarp"))
+
+data_78_bt <- read_table("orthovnir078_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Tarp"))
+
+data_78_NON <- read_table("orthovnir078_ROI_NON_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
+  
+```
+```{r}
+data_full <- bind_rows(
+  data_67_BT,
+  data_57_NON,
+  data_67_NOT,
+  data_69_NOT,
+  data_69_bt,
+  data_78_bt,
+  data_78_NON)
+```
+
+```{r}
+write.csv(data_full, "Mapping_Data.csv")
+```
+
+
+
