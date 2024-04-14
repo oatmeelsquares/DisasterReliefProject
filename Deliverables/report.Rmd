@@ -45,7 +45,9 @@ data <- read_csv(file) #%>%
 
 The dataset that will be used consists of class as a response variable and red, blue, green pixels as the predictor variables. There are a total of 63,241 records with no missing values. Pixels can have a range of 0-255 but for this dataset all pixels have a max of 255. Red and green pixels share a minimum value of 48 and blue has a minimum of 44. For Class there are five distinct values: Blue Tarp, Rooftop, Soil, Various Non-Tarp, and Vegetation.
 
-The box plots below showcase the distribution of the range of pixel values grouped by each of the categories of images observed. For are analysis one thing we would like to note is the potential groups that could overlap with out goal value of blue tarps. Rooftop values seem to be the closet for which a potential prediction error is likely to occur as its values overlap quite closely with the blue tarps. This is followed by Various Non-Tarps that have a large range of values which encompass tarps.
+The box plots below showcase the distribution of the range of pixel values grouped by each of the categories of images observed. For our analysis, one thing we would like to note is the potential groups that could overlap with our goal value of blue tarps. The range of pixel values for each color lie within the following approximate ranges for the blue tarp class: 150-200 for the red pixels, 160-250 for the green pixels, and 175-250 for the blue pixels. The blue pixels have the largest average values, which indicates a higher saturation of the color blue (the color of our tarps). 
+
+When viewing the boxplots, there appears to be some overlap of red and green pixel values for the rooftop class and the various non-tarp class with the blue tarp class. The blue pixel values do not overlap as much across classes as the blue tarps have the highest saturation of blue pixels. As we work to identify the best model to identify blue tarps, we will keep in mind that there is some overlap of red and green pixel values of the various non-tarp class and the rooftop class with the blue tarp class. This overlap may potentially make up a portion of the false positives in our final model so we will try to minimize false positives as much as possible while also minimizing false negatives. 
 
 ```{r EDA_Boxplots}
 #| fig.width: 6
@@ -71,7 +73,8 @@ g1_box/g2_box/g3_box
 
 ```
 
-The countplot below shows the total counts grouped by class. Blue tarp has the smallest amount of values at 2022. While this is important to note for the threshold selection later on in the model. It is promising that the two largest values by far are vegetation and soil as they are the two who are least likely to represent false positive or false negative values when predicting for tarps. Rooftops and Various Non-Tarps however, do account for 14,647 which do have closer overlaps.  
+
+The count plot below displays the total counts grouped by class. Blue tarp has the smallest amount of values at 2022. While this is important to note for the threshold selection later on in the model, it is promising that the two largest values by far are vegetation and soil as they are the two who are least likely to represent false positive or false negative values when predicting for tarps. Rooftops and Various Non-Tarps however, do account for 14,647 pixels which do have closer overlaps with the green and blue pixel values for blue tarps. Again, we will need to look out for these potential false positives when assessing our models.
 
 ```{r EDA_Countplot_Class_ungrouped }
 #| fig.width: 6
@@ -85,14 +88,171 @@ ggplot(data, aes(Class))+
   geom_bar()+
   labs(title= "Count Plot of Class", x="Count")
 ```
-Table 1 highlights the values of Tarps vs Non-Tarp. In this instance we note that the proportion of tarps in the total dataset is 3%. When we conduct our threshold selection across all models this will be important as the models will default to a 50-50 threshold.
+
+While it is important to assess red, green, and blue pixel values for each class, our main priority is to identify Blue tarps. Since we are targeting a particular class, we are able to transition into a binary problem where we classify the data as follows: Tarps for our target class and Non-Tarp for all other classes.  
+
+The bar chart and table 1 below highlight the values of Blue-tarps versus Non-Tarps. In this instance, we note that the proportion of tarp pixels in the total dataset is 3%. When we conduct our threshold selection across all models, this will be important as the models will default to a 50-50 threshold.
+
+
+```{r}
+#| fig.width: 6
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Count plot of Classes: Blue-Tarp and Non-Tarp
+#| dev: "png"
+#| dpi: 100
+data <- data %>% 
+  mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
+ggplot(data, aes(Class))+
+  geom_bar()+
+  labs(title= "Count Plot of Classes", x="Count")
+```
 
 
 ```{r EDA_Count_Table_1}
-data <- data %>% 
-  mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
 table(data$Class) %>% knitr::kable(caption = "Count of Class")
 ```
+
+In the box plots below, we can again see the overlap of the red and green pixel values of the non-tarp class with the tarp class. Fortunately, there is not as much overlap of the blue pixel values between the tarp class and the non-tarp class. Our best model may potentially focus the blue pixel predictor more so than the others due to it greater uniqueness.
+
+
+```{r EDA_boxplot-binary}
+#| fig.width: 20
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Box plots of the pixel values broken out by each color and class.
+#| dev: "png"
+#| dpi: 200
+bluedata <- data[data$Class == 'Tarp', ]
+otherdata <- data[data$Class == 'Non-Tarp',]
+g1_tarpden <- ggplot(bluedata,aes(x=Red))+
+  geom_boxplot()+
+  labs(title= "Box plot of Red Pixel Value of Blue-tarps")
+g1_nontarpden <- ggplot(otherdata,aes(x=Red))+
+  geom_boxplot()+
+  labs(title= "Box plot of Red Pixel Value of Non-tarps")
+g2_tarpden <- ggplot(bluedata,aes(x=Green))+
+  geom_boxplot()+
+  labs(title= "Box plot of Green Pixel Value of Blue-tarps")
+g2_nontarpden <- ggplot(otherdata,aes(x=Green))+
+  geom_boxplot()+
+  labs(title= "Box plot of Green Pixel Value of Non-tarps")
+g3_tarpden <- ggplot(bluedata,aes(x=Blue))+
+  geom_boxplot()+
+  labs(title= "Box plot of Blue Pixel Value of Blue-tarps")
+g3_nontarpden <- ggplot(otherdata,aes(x=Blue))+
+  geom_boxplot()+
+  labs(title= "Box plot of Blue Pixel Value of Non-tarps")
+
+(g1_tarpden+g1_nontarpden)/(g2_tarpden+g2_nontarpden)/(g3_tarpden+g3_nontarpden)
+```
+
+```{r holdout processing EDA}
+
+columns = c('ID', 'X','Y','Map X','Map Y','Lat','Lon','B1','B2','B3')
+
+data_67_BT <- read_table("orthovnir067_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Tarp"))
+
+data_57_NON <- read_table("orthovnir057_ROI_NON_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
+
+data_67_NOT <- read_table("orthovnir067_ROI_NOT_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
+
+data_69_NOT <- read_table("orthovnir069_ROI_NOT_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
+
+data_69_bt <- read_table("orthovnir069_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Tarp"))
+
+data_78_bt <- read_table("orthovnir078_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Tarp"))
+
+data_78_NON <- read_table("orthovnir078_ROI_NON_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
+  
+```
+
+```{r holdout EDA}
+data_full <- bind_rows(
+  data_67_BT,
+  data_57_NON,
+  data_67_NOT,
+  data_69_NOT,
+  data_69_bt,
+  data_78_bt,
+  data_78_NON)
+```
+
+
+It can be helpful in our EDA to take a look at the holdout set to see how it compares to our training set. Here, we take a look a bar chart of the holdout data below, the difference in the count between the tarps and non-tarps is even more extreme, where the blue-tarps pixels only make up about 0.7% of the data. 
+
+```{r EDA_boxplot_binaryfull}
+#| fig.width: 6
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Count plot of Classes: Blue-Tarp and Non-Tarp
+#| dev: "png"
+#| dpi: 100
+ggplot(data_full, aes(Class), fill = Class)+
+  geom_bar()+
+  labs(title= "Count Plot of Classes for Holdout Set", x="Count")
+```
+
+
+```{r}
+table(data_full$Class) %>% knitr::kable(caption = "Count of Class for holdout set")
+```
+
+In the box plots below of the blue-tarps versus the non-tarps, we can see that the distributions of the pixel values are slightly different between the training data and the hold out set. In assessing our final models, we need to make sure that we try to avoid models that overfit the training data as they may not perform as well on the test data.
+
+```{r density full data}
+#| fig.width: 20
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Box plots of the pixel values broken out by each color and class for the hold-out set.
+#| dev: "png"
+#| dpi: 200
+bluedata_full <- data_full[data_full$Class == 'Tarp', ]
+otherdata_full<- data_full[data_full$Class == 'Non-Tarp',]
+g1_tarpden_full <- ggplot(bluedata_full,aes(x=B1))+
+  geom_boxplot()+
+  labs(title= "Box plot of Red Pixel Value of Blue-tarps")
+g1_nontarpden_full <- ggplot(otherdata_full,aes(x=B1))+
+  geom_boxplot()+
+  labs(title= "Box plot of Red Pixel Value of Non-tarps")
+g2_tarpden_full <- ggplot(bluedata_full,aes(x=B2))+
+  geom_boxplot()+
+  labs(title= "Box plot of Green Pixel Value of Blue-tarps")
+g2_nontarpden_full <- ggplot(otherdata_full,aes(x=B2))+
+  geom_boxplot()+
+  labs(title= "Box plot of Green Pixel Value of Non-tarps")
+g3_tarpden_full <- ggplot(bluedata_full,aes(x=B3))+
+  geom_boxplot()+
+  labs(title= "Box plot of Blue Pixel Value of Blue-tarps")
+g3_nontarpden_full <- ggplot(otherdata_full,aes(x=B3))+
+  geom_boxplot()+
+  labs(title= "Box plot of Blue Pixel Value of Non-tarps")
+
+(g1_tarpden_full+g1_nontarpden_full)/(g2_tarpden_full+g2_nontarpden_full)/(g3_tarpden_full+g3_nontarpden_full)
+```
+
+```{r}
+#| fig.width: 20
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Box plots of the pixel values broken out by each color and class for the training data.
+#| dev: "png"
+#| dpi: 200
+(g1_tarpden+g1_nontarpden)/(g2_tarpden+g2_nontarpden)/(g3_tarpden+g3_nontarpden)
+```
+
 
 # Description of Methodology
 
@@ -734,6 +894,103 @@ pen_train_cm
 
 To evaluate final model performance, we examine the models ROC AUC as a metric that captures its full performance across all thresholds. This flexibility allows leeway in case of changing threshold selection for prioritizing a different goal outcome. The AUC of the optimal logistic regression model is 0.9985 which indicates a very high performing model. The AUC of the optimal penalized logistic regression model is 0.9986 which also is a very high value.
 
+## Boosting Model using XGBoost
+
+```{r ensemble - boost}
+# define model spec
+
+ens_spec <- boost_tree(mode="classification",trees = 10, tree_depth = tune(), learn_rate = tune()) %>%
+    set_engine("xgboost")
+
+# define workflow
+ens_wf <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(ens_spec)
+
+# set tuning parameters
+ens_params <- extract_parameter_set_dials(ens_wf)
+
+# tune with grid (or fit resamples)
+ens_tune <- tune_grid(ens_wf,
+                      resamples = resamples,
+                      grid = grid_regular(ens_params, levels = 10),
+                      control = cv_control
+                      )
+
+# get tuning results visualization
+ens_tune_vis <- autoplot(ens_tune, metric = 'roc_auc')
+
+# finalize workflow and fit resamples with best parameters
+ens_best_params <- select_best(ens_tune, metric = 'roc_auc')
+
+ens_final <- ens_wf %>% 
+  finalize_workflow(ens_best_params)
+
+ens_fitcv <- fit_resamples(ens_final,
+                           resamples,
+                           control = cv_control
+                           )
+
+# collect predictions and roc_auc from cross-validated fit
+ens_cv_preds <-  collect_predictions(ens_fitcv)
+ens_cv_metrics <- collect_metrics(ens_fitcv)
+
+# get ROC plot for cross-validation
+ens_cv_roc <- roc_plot(ens_cv_preds, 'Boosting Model')
+
+# get threshold selection info
+ens_thresh_perf <- probably::threshold_perf(ens_cv_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = threshold_metrics)
+
+# get threshold for best sensitivity
+ens_max_sens <- ens_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+ens_max_j <- ens_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+ens_tmetrics_plot <- threshold_metric_plot(ens_thresh_perf, ens_max_sens, ens_max_j)
+
+
+# get best threshold 
+ens_threshold <- as.numeric(ens_max_j[1,1])
+
+# get predictions and metrics based on chosen threshold
+ens_threshold_preds <- threshold_preds(ens_cv_preds, ens_threshold)
+
+ens_threshold_metrics <- threshold_metrics(ens_threshold_preds,
+                                           truth = Class,
+                                           estimate = .pred_class)
+
+# get confusion matrix for chosen threshold
+ens_train_train_cm <- conf_mat(ens_threshold_preds,
+                               truth = Class,
+                               estimate = .pred_class)
+
+## PART II ##
+
+# fit final workflow to training data
+ens_fit <- fit(ens_final,data)
+
+# get predictions and metrics for holdout data
+ens_test_preds <- threshold_preds(augment(ens_fit, new_data = holdout),
+                                  ens_threshold)
+ens_test_roc <- roc_plot(ens_test_preds, "Boost Model")
+
+ens_test_metrics <- test_metrics(ens_test_preds)
+
+ens_test_cm <- conf_mat(ens_test_preds,
+                        truth = Class,
+                        estimate = .pred_class)
+```
 
 
 ```{r compare-models}
@@ -791,6 +1048,8 @@ compare_test_metrics <- bind_rows(
               values_from = mean)
 
 ```
+
+
 
 # Results
 
