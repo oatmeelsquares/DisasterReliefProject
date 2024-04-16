@@ -992,6 +992,196 @@ ens_test_cm <- conf_mat(ens_test_preds,
                         estimate = .pred_class)
 ```
 
+## Support Vector Machine Models
+
+```{r}
+## PART I ##
+# define model spec
+svmp_spec <- svm_poly(mode = "classification", engine = "kernlab", cost = tune(),
+                        margin = tune(), degree = tune()) 
+
+# define workflow
+svmp_wf <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(svmp_spec)
+
+# set tuning parameters
+svmp_params <- extract_parameter_set_dials(svmp_wf)
+
+# tune with grid (or fit resamples)
+svmp_tune <- tune_bayes(svmp_wf,
+                      resamples = resamples,
+                      metrics = metric_set(roc_auc),
+                      param_info = svmp_params, iter = 20
+                      )
+
+# get tuning results visualization
+svmp_tune_vis <- autoplot(svmp_tune, metric = 'roc_auc')
+
+# finalize workflow and fit resamples with best parameters
+svmp_best_params <- select_best(svmp_tune, metric = 'roc_auc')
+
+svmp_final <- svmp_wf %>% 
+  finalize_workflow(svmp_best_params)
+
+svmp_fitcv <- fit_resamples(svmp_final,
+                           resamples,
+                           control = cv_control
+                           )
+
+# collect predictions and roc_auc from cross-validated fit
+svmp_cv_preds <-  collect_predictions(svmp_fitcv)
+svmp_cv_metrics <- collect_metrics(svmp_fitcv)
+
+# get ROC plot for cross-validation
+svmp_cv_roc <- roc_plot(svmp_cv_preds, 'svmp')
+
+# get threshold selection info
+svmp_thresh_perf <- probably::threshold_perf(svmp_cv_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = threshold_metrics)
+
+# get threshold for best sensitivity
+svmp_max_sens <- svmp_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+svmp_max_j <- svmp_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+svmp_tmetrics_plot <- threshold_metric_plot(svmp_thresh_perf, svmp_max_sens, svmp_max_j)
+
+# get best threshold
+svmp_threshold <- as.numeric(svmp_max_sens[1,1])
+
+# get predictions and metrics based on chosen threshold
+svmp_threshold_preds <- threshold_preds(svmp_cv_preds, svmp_threshold)
+
+svmp_threshold_metrics <- threshold_metrics(svmp_threshold_preds,
+                                           truth = Class,
+                                           estimate = .pred_class)
+
+# get confusion matrix for chosen threshold
+svmp_train_train_cm <- conf_mat(svmp_threshold_preds,
+                               truth = Class,
+                               estimate = .pred_class)
+
+## PART II ##
+# fit final workflow to training data
+svmp_fit <- fit(svmp_final, data)
+
+# get predictions and metrics for holdout data
+svmp_test_preds <- threshold_preds(augment(svmp_fit, new_data = holdout),
+                                  svmp_threshold)
+svmp_test_roc <- roc_plot(svmp_test_preds, "svmp")
+
+svmp_test_metrics <- test_metrics(svmp_test_preds)
+
+svmp_test_cm <- conf_mat(svmp_test_preds,
+                        truth = Class,
+                        estimate = .pred_class)
+```
+
+```{r}
+## PART I ##
+# define model spec
+svmr_spec <- svm_rbf(mode = "classification", engine = "kernlab", cost = tune(),
+                        margin = tune(), rbf_sigma = tune()) 
+
+# define workflow
+svmr_wf <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(svmr_spec)
+
+# set tuning parameters
+svmr_params <- extract_parameter_set_dials(svmr_wf)
+
+# tune with grid (or fit resamples)
+svmr_tune <- tune_bayes(svmr_wf,
+                      resamples = resamples,
+                      metrics = metric_set(roc_auc),
+                      param_info = svmr_params, iter = 20
+                      )
+
+# get tuning results visualization
+svmr_tune_vis <- autoplot(svmr_tune, metric = 'roc_auc')
+
+# finalize workflow and fit resamples with best parameters
+svmr_best_params <- select_best(svmr_tune, metric = 'roc_auc')
+
+svmr_final <- svmr_wf %>% 
+  finalize_workflow(svmr_best_params)
+
+svmr_fitcv <- fit_resamples(svmr_final,
+                           resamples,
+                           control = cv_control
+                           )
+
+# collect predictions and roc_auc from cross-validated fit
+svmr_cv_preds <-  collect_predictions(svmr_fitcv)
+svmr_cv_metrics <- collect_metrics(svmr_fitcv)
+
+# get ROC plot for cross-validation
+svmr_cv_roc <- roc_plot(svmr_cv_preds, 'svmr')
+
+# get threshold selection info
+svmr_thresh_perf <- probably::threshold_perf(svmr_cv_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = threshold_metrics)
+
+# get threshold for best sensitivity
+svmr_max_sens <- svmr_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+svmr_max_j <- svmr_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+svmr_tmetrics_plot <- threshold_metric_plot(svmr_thresh_perf, svmr_max_sens, svmr_max_j)
+
+# get best threshold
+svmr_threshold <- as.numeric(svmp_max_sens[1,1])
+
+# get predictions and metrics based on chosen threshold
+svmr_threshold_preds <- threshold_preds(svmr_cv_preds, svmr_threshold)
+
+svmr_threshold_metrics <- threshold_metrics(svmr_threshold_preds,
+                                           truth = Class,
+                                           estimate = .pred_class)
+
+# get confusion matrix for chosen threshold
+svmr_train_train_cm <- conf_mat(svmr_threshold_preds,
+                               truth = Class,
+                               estimate = .pred_class)
+
+## PART II ##
+# fit final workflow to training data
+svmr_fit <- fit(svmr_final, data)
+
+# get predictions and metrics for holdout data
+svmr_test_preds <- threshold_preds(augment(svmr_fit, new_data = holdout),
+                                  svmr_threshold)
+svmr_test_roc <- roc_plot(svmr_test_preds)
+
+svmr_test_metrics <- test_metrics(svmr_test_preds)
+
+svmr_test_cm <- conf_mat(svmr_test_preds,
+                        truth = Class,
+                        estimate = .pred_class)
+```
+
 
 ```{r compare-models}
 # get all cross-validation plots and metrics
