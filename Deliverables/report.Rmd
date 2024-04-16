@@ -270,7 +270,6 @@ As established during the EDA, the proportion of Blue Tarps to all other classes
 
 # Results of Model Fitting, Tuning Parameter Selection, and Evaluation
 
-
 ```{r convenience-functions}
 # define functions to use later for convenience
 cv_control <- control_resamples(save_pred = TRUE)
@@ -287,7 +286,7 @@ roc_plot <- function(model_preds, model_name) {
           axis.title.y=element_blank()  #remove y axis labels
           )
   roc +
-    labs(title = paste('ROC for', model_name, 'model')) +
+    labs(title = paste(model_name)) +
     inset_element(zoom, left = 0.4, right = 0.95, bottom = 0.05, top = 0.6)
 }
 
@@ -410,8 +409,8 @@ knn_max_j <- knn_thresh_perf %>%
 # get threshold metrics plot
 knn_tmetrics_plot <- threshold_metric_plot(knn_thresh_perf, knn_max_sens, knn_max_j)
 
-# get best threshold                ##
-knn_threshold <- knn_max_j[1, 1]    ## !! add
+# get best threshold
+knn_threshold <- as.numeric(knn_max_j[1, 1])
 
 # get predictions and metrics based on chosen threshold
 knn_threshold_preds <- threshold_preds(knn_cv_preds, knn_threshold)
@@ -427,12 +426,12 @@ knn_train_cm <- conf_mat(knn_threshold_preds,
 
 ## PART II ##
 # fit final workflow to training data
-knn_fit <- fit(knn_final, holdout)
+knn_fit <- fit(knn_final, data)
 
 # get predictions and metrics for holdout data
 knn_test_preds <- threshold_preds(augment(knn_fit, new_data = holdout),
                                   knn_threshold)
-knn_test_roc <- roc_plot(knn_test_preds)
+knn_test_roc <- roc_plot(knn_test_preds, 'KNN')
 
 knn_test_metrics <- test_metrics(knn_test_preds)
 
@@ -442,7 +441,8 @@ knn_test_cm <- conf_mat(knn_test_preds,
 ```
 
 
-We will now build a K-nearest neighbors (KNN) model with the number of neighbors, k, tuned to find the best fit. Figure 3 shows the ROC AUC of the model when fitted with different numbers of neighbors. It shows that the AUC of the ROC curve increases with k, maxing around 50, and leveling out at higher tuning values. The highest AUC is **0.9943** and belongs to the model with k = 40 neighbors. However, we choose a model within one standard deviation of the best metric for simplicity. From the plot, we can see that the point with the lowest number of neighbors above the dashed standard-error line represents the model with k = 8 nearest neighbors. We will use this tuning metric moving forward.
+We now build a K-nearest neighbors (KNN) model with the number of neighbors, k, tuned to find the best fit. Figure 3 shows the ROC AUC of the model when fitted with different numbers of neighbors. It shows that the AUC of the ROC curve increases with k, maxing before 50, and leveling out at higher tuning values. The highest AUC is **0.9943** and belongs to the model with k = 40 neighbors, so we use this tuning metric moving forward.
+
 
 
 ```{r figure-X-knn-tune}
@@ -450,30 +450,40 @@ We will now build a K-nearest neighbors (KNN) model with the number of neighbors
 #| fig.height: 5
 #| fig.align: center
 #| out.width: 70%
-#| fig.cap: ROC AUC based on number of principal components and nearest neighbors. The dashed horizontal line represents one standard deviation lower than the best AUC metric.
+#| fig.cap: ROC AUC based on number of principal components and nearest neighbors.
 #| dev: "png"
 #| dpi: 100
 knn_tune_vis
 ```
 
-With the number of neighbors tuned to k = 8, our model has an ROC AUC of **0.9933**. The ROC curve will be displayed in the next section, when all of the models are compared. The next step is to select the appropriate threshold for our model. Figure 4 shows five different metrics plotted against the threshold value, with thresholds ranging from 0.01 to 0.99. The metrics were calculated using tenfold cross-validation. The vertical lines show that sensitivity and j-index are both maximized at 0.02, 0.03, and 0.04 equally. Therefore, since the other metrics increase with the threshold, we choose the highest one, threshold = 0.04, to move forward with.
+With the number of neighbors tuned to k = 40, our model has an ROC AUC of **0.9933**. The ROC curve will be displayed in the next section, when all of the models are compared. The next step is to select the appropriate threshold for our model. Figure 4 shows five different metrics plotted against the threshold value, with thresholds ranging from 0.01 to 0.99. The metrics were calculated using tenfold cross-validation. The vertical lines show that sensitivity is maximized anywhere between 0.01 and 0.09, and j-index is maximized at 0.09. Therefore, we will use threshold = 0.09 in order to maximize both the sensitivity and j-index.
 
 ```{r figure-X-knn-threshold-metrics}
+#| fig.width: 5
+#| fig.height: 4
 #| fig.align: center
 #| out.width: 70%
-#| fig.cap: Five metrics based on threshold value for the KNN model with k = 8 nearest neighbors. Vertical lines show maximum j-index and sensitivity between 0.02 and 0.04.
+#| fig.cap: Five metrics based on threshold value for the KNN model with k = 40 nearest neighbors. Vertical lines show maximum sensitivity between 0.01 and 0.09, and maximum j-index at 0.09.
 #| dev: "png"
 #| dpi: 100
 knn_tmetrics_plot
 ```
 
-Our final model has k = 8 nearest neighbors and a selection threshold of 0.04. The corresponding confusion matrix is shown below.
+Our final model has k = 40 nearest neighbors and a selection threshold of 0.09. The corresponding confusion matrix is shown below.
 
 ```{r knn-conf-mat}
 knn_train_cm
 ```
 
-The confusion matrix shows that our final model misses only 26 Blue Tarp pixels and falsely identifies 251 Non-Tarp pixels. The overall accuracy of the model is 0.9956, with sensitivity of 0.9959. The precision is also very high: 0.9996. The specificity is 0.9871 and the j-index comes out to 0.9830.
+The confusion matrix shows that our final model misses only 23 Blue Tarp pixels in the training set and falsely identifies 291 Non-Tarp pixels.
+
+On the holdout set, the KNN model with 40 neighbors produces a ROC AUC of 0.9643 and the chosen threshold classifies the data as shown in the confusion matrix below:
+
+```{r}
+knn_test_cm
+```
+
+The KNN model performs a little worse on the testing data, which is to be expected. The true positive (sensitivity) rate dropped from 0.9952 to 0.9842 and the j-index dropped from 0.9839 to 0.9132. In a vacuum, it does not seem like a significant change, but there is a possibility of some overfitting here. In the next section, we will compare the models to judge the amount of overfitting.
 
 
 ## Linear Discriminant Analysis
@@ -503,10 +513,7 @@ lda_thresh_perf <- probably::threshold_perf(lda_cv_preds,
                                             .pred_Tarp,
                                             thresholds = seq(0.01, 0.99, 0.01),
                                             event_level = 'second',
-                                            metrics = metric_set(j_index,
-                                                                 specificity,
-                                                                 sensitivity,
-                                                                 accuracy))
+                                            metrics = threshold_metrics)
 
 # get threshold for best sensitivity
 lda_max_sens <- lda_thresh_perf %>% 
@@ -522,7 +529,7 @@ lda_max_j <- lda_thresh_perf %>%
 lda_tmetrics_plot <- threshold_metric_plot(lda_thresh_perf, lda_max_sens, lda_max_j)
 
 # get best threshold
-lda_threshold <- lda_max_sens[1, 1]
+lda_threshold <- as.numeric(lda_max_sens[1, 1])
 
 # get predictions and metrics based on chosen threshold
 lda_threshold_preds <- lda_cv_preds %>% 
@@ -536,12 +543,12 @@ lda_train_cm <- conf_mat(lda_threshold_preds, truth = Class, estimate = .pred_cl
 
 ## PART II ##
 # fit final workflow to training data
-lda_fit <- fit(lda_final, holdout)
+lda_fit <- fit(lda_final, data)
 
 # get predictions and metrics for holdout data
 lda_test_preds <- threshold_preds(augment(lda_fit, new_data = holdout),
                                   lda_threshold)
-lda_test_roc <- roc_plot(lda_test_preds)
+lda_test_roc <- roc_plot(lda_test_preds, 'LDA')
 
 lda_test_metrics <- test_metrics(lda_test_preds)
 
@@ -550,9 +557,12 @@ lda_test_cm <- conf_mat(lda_test_preds,
                         estimate = .pred_class)
 ```
 
-We built and trained the LDA model using our data set and then assessed the model’s performance metrics. We found that the model has an AUC of 0.9888, which means that it performs well on the data and classifies blue tarp pixels versus non-tarp pixels better than a random model. The next step was choosing the appropriate threshold for this model. Figure 5 displays the threshold plot with the plotted values of the chosen metrics from 0 to 1.   
+The second model under consideration is linear discriminant analysis (LDA). We found that the LDA model has a ROC AUC of 0.9888, which means that it performs well on the data and classifies blue tarp pixels versus non-tarp pixels much better than a random model. The ROC curve corresponding to the LDA model will be displayed with the other curves in the next section. To choose an appropriate threshold, we reference Figure 5, which displays the threshold plot with the plotted values of the chosen metrics from 0.01 to 0.99.
+
 
 ```{r figure-X-lda-threshold-metrics}
+#| fig.width: 5
+#| fig.height: 4
 #| fig.align: center
 #| out.width: 70%
 #| fig.cap: Four metrics based on threshold value for the LDA model. Vertical lines show maximum j-index and sensitivity at 0.01.
@@ -562,14 +572,23 @@ lda_tmetrics_plot
 ```
  
 
-These displayed metrics are accuracy, j-index, sensitivity, and specificity, but we are most interested in sensitivity and j-index. Both sensitivity and j-index perform the best at a threshold of around 0.01. This value of 0.01 will be the chosen threshold for our model when utilizing it for predictions. After threshold selection, the confusion matrix for the model was assessed where we explored the number of false negatives, false positives, and true positives. We found that while we miss some blue tarp pixels, we locate many more, while also limiting the number of false positives.  
+A threshold of 0.01 maximizes both sensitivity and j-index, so we will use this threshold moving forward. After threshold selection, the confusion matrix for the model was assessed to find the number of false negatives, false positives, and true positives. We found that the LDA model at the chosen threshold misses 231 blue tarps and falsely identifies 1284 blue tarps, while correctly identifying 1791 of the 2022 total tarp pixels in the dataset.
 
 ```{r lda-cm}
 lda_train_cm
 ```
 
  
-The LDA model performed very well on the data at the selected threshold. Sensitivity, accuracy, and precision are all estimated between 0.976 and 0.996. This model appears to be fairly accurate and sensitive to the data.  
+The LDA model performs with a high level of accuracy (0.9760) and precision (0.9962), however, due to the rare nature of the blue tarps, a model classifying all pixels as Non-Tarp would have accuracy and precision of 0.9680. As the confusion matrix shows, the LDA model misclassifies a significant number of blue tarps. Sensitivity and specificity are 0.9790 and 0.8858, respectively, and the j-index is 0.8648.
+
+On the holdout set, the LDA model produces a ROC AUC of 0.9921 and the chosen threshold classifies the data as shown in the confusion matrix below.
+
+```{r}
+lda_test_cm
+```
+
+From the confusion matrix, we can calculate a sensitivity of 0.9680 and j-index 0.9252, which is actually higher than the j-index for the training set. The other metrics decreased marginally, however, which is expected for a test set. The amount of decrease in metrics does not appear significant enough to indicate problematic overfitting.
+
 
 ## Quadratic Discriminant Analysis
 
@@ -600,10 +619,7 @@ qda_thresh_perf <- probably::threshold_perf(qda_cv_preds,
                                             .pred_Tarp,
                                             thresholds = seq(0.01, 0.99, 0.01),
                                             event_level = 'second',
-                                            metrics = metric_set(j_index,
-                                                                 specificity,
-                                                                 sensitivity,
-                                                                 accuracy))
+                                            metrics = threshold_metrics)
 
 # get threshold for best sensitivity
 qda_max_sens <- qda_thresh_perf %>% 
@@ -619,7 +635,7 @@ qda_max_j <- qda_thresh_perf %>%
 qda_tmetrics_plot <- threshold_metric_plot(qda_thresh_perf, qda_max_sens, qda_max_j)
 
 # get best threshold
-qda_threshold <- (qda_max_sens[1, 1] + qda_max_j[1, 1]) / 2
+qda_threshold <- as.numeric( (qda_max_sens[1, 1] + qda_max_j[1, 1]) / 2 )
 
 # get predictions and metrics based on chosen threshold
 qda_threshold_preds <- qda_cv_preds %>% 
@@ -633,12 +649,12 @@ qda_train_cm <- conf_mat(qda_threshold_preds, truth = Class, estimate = .pred_cl
 
 ## PART II ##
 # fit final workflow to training data
-qda_fit <- fit(qda_final, holdout)
+qda_fit <- fit(qda_final, data)
 
 # get predictions and metrics for holdout data
 qda_test_preds <- threshold_preds(augment(qda_fit, new_data = holdout),
                                   qda_threshold)
-qda_test_roc <- roc_plot(qda_test_preds)
+qda_test_roc <- roc_plot(qda_test_preds, 'QDA')
 
 qda_test_metrics <- test_metrics(qda_test_preds)
 
@@ -648,7 +664,7 @@ qda_test_cm <- conf_mat(qda_test_preds,
 ```
 
 
-We then built and trained a QDA model using the same blue tarp and non-tarp data set. We found that the model's AUC was 0.9982, which means it performs a lot better than a random model. The next step was selecting the best threshold based on sensitivity and j_index. We found that the maximum sensitivity is at a threshold of 0.01, while the maximum j-index was at 0.02. These metrics at each threshold value are shown within the threshold plot in figure 6. 
+The next model to be considered is based on quadratic discriminant analysis (QDA). We found that the model's AUC was 0.9982, which means it performs a lot better than a random model. The next step was selecting the best threshold based on sensitivity and j_index. We found that the maximum sensitivity is at a threshold of 0.01, while the maximum j-index was at 0.02. These metrics at each threshold value are shown within the threshold plot in Figure 6.
 
 
 ```{r figure-X-qda-threshold-metrics}
@@ -661,15 +677,20 @@ qda_tmetrics_plot
 ```
  
 
-Since sensitivity and j-index are both important for this data, we decided to choose a threshold in between 0.01 and 0.02 for this model, which was 0.015. This threshold value seems to maximize both metrics, as the j-index is 0.9692, while the sensitivity is 0.9717.  
-
-After we selected the appropriate threshold for our model, we then assessed the confusion matrix with the selected threshold. The model performed extremely well at this selected threshold in terms of locating tarp pixels as there are only 5 that are missed. However, when choosing a final model, it will be important to keep in mind that the number of false positives is fairly high and may impact our final model choice. 
+Since sensitivity and j-index are both important for this data, we choose a threshold in between 0.01 and 0.02 for this model, and we will use threshold = 0.015 going forward. This threshold value seeks to maximize both metrics, resulting in a j-index of 0.9692 and sensitivity of 0.9717. The confusion matrix below represents the QDA model's performance on the training dataset.
 
 ```{r qda-cm}
 qda_train_cm
 ```
 
-The QDA model at the selected threshold has a sensitivity of 0.9717, accuracy of 0.9725, and precision of 0.9999. These metrics reveal that the QDA model performs very well on the data and can correctly identify many of the tarps. The QDA model appears to perform better than the LDA model so it seems that the data benefits from some flexibility in the predictive algorithm. 
+The model performs very well at the selected threshold in terms of locating tarp pixels, missing only five (5). However, it also misclassifies a large number (1732) of non-tarp pixels. When choosing a final model, it will be important to keep in mind the practicality of the model. 
+
+The QDA model appears to perform better than the LDA model in terms of sensitivity and j-index, so it seems that the data benefits from some flexibility in the predictive algorithm. The risk of more flexibility, however, is overfitting. We now check the confusion matrix for the holdout data.
+
+```{r}
+qda_test_cm
+```
+We can see that the QDA model performs worse on the testing data: the accuracy dropped from 0.9725 to 0.9637 and the true positive rate dropped from0.9717 to 0.9639. It's possible that the flexibility of the method led to overfitting, however we will compare the change inmetrics between the models in the next section to get a better idea of how significant the change is.
 
 
 ## Logistic Regression Analysis and Penalized Logistic Regression Analysis
@@ -700,10 +721,7 @@ log_thresh_perf <- probably::threshold_perf(log_cv_preds,
                                             .pred_Tarp,
                                             thresholds = seq(0.01, 0.99, 0.01),
                                             event_level = 'second',
-                                            metrics = metric_set(j_index,
-                                                                 specificity,
-                                                                 sensitivity,
-                                                                 accuracy))
+                                            metrics = threshold_metrics)
 
 # get threshold for best sensitivity
 log_max_sens <- log_thresh_perf %>% 
@@ -719,7 +737,7 @@ log_max_j <- log_thresh_perf %>%
 log_tmetrics_plot <- threshold_metric_plot(log_thresh_perf, log_max_sens, log_max_j)
 
 # get best threshold
-log_threshold <- log_max_j[1, 1]
+log_threshold <- as.numeric(log_max_j[1, 1])
 
 # get predictions and metrics based on chosen threshold
 log_threshold_preds <- log_cv_preds %>% 
@@ -734,12 +752,12 @@ log_train_cm <- conf_mat(log_threshold_preds, truth = Class, estimate = .pred_cl
 
 ## PART II ##
 # fit final workflow to training data
-log_fit <- fit(log_final, holdout)
+log_fit <- fit(log_final, data)
 
 # get predictions and metrics for holdout data
 log_test_preds <- threshold_preds(augment(log_fit, new_data = holdout),
                                   log_threshold)
-log_test_roc <- roc_plot(log_test_preds)
+log_test_roc <- roc_plot(log_test_preds, 'Logistic Regression')
 
 log_test_metrics <- test_metrics(log_test_preds)
 
@@ -800,10 +818,7 @@ pen_thresh_perf <- probably::threshold_perf(pen_cv_preds,
                                             .pred_Tarp,
                                             thresholds = seq(0.01, 0.99, 0.01),
                                             event_level = 'second',
-                                            metrics = metric_set(j_index,
-                                                                 specificity,
-                                                                 sensitivity,
-                                                                 accuracy))
+                                            metrics = threshold_metrics)
 
 # get threshold for best sensitivity
 pen_max_sens <- pen_thresh_perf %>% 
@@ -819,7 +834,7 @@ pen_max_j <- pen_thresh_perf %>%
 pen_tmetrics_plot <- threshold_metric_plot(pen_thresh_perf, pen_max_sens, pen_max_j)
 
 # get best threshold
-pen_threshold <- pen_max_j[1, 1]
+pen_threshold <- as.numeric(pen_max_j[1, 1])
 
 # get predictions and metrics based on chosen threshold
 pen_threshold_preds <- pen_cv_preds %>% 
@@ -834,12 +849,12 @@ pen_train_cm <- conf_mat(pen_threshold_preds, truth = Class, estimate = .pred_cl
 
 ## PART II ##
 # fit final workflow to training data
-pen_fit <- fit(pen_final, holdout)
+pen_fit <- fit(pen_final, data)
 
 # get predictions and metrics for holdout data
 pen_test_preds <- threshold_preds(augment(pen_fit, new_data = holdout),
                                   pen_threshold)
-pen_test_roc <- roc_plot(pen_test_preds)
+pen_test_roc <- roc_plot(pen_test_preds, 'Penalized Log. Regression')
 
 pen_test_metrics <- test_metrics(pen_test_preds)
 
@@ -848,23 +863,27 @@ pen_test_cm <- conf_mat(pen_test_preds,
                         estimate = .pred_class)
 ```
 
-There are two types of logistic regression models that are used, a standard logistic regression model and a penalized logistic regression model. While the logistic regression model does not have any parameters to tune, the penalized logistic regression model is a model that applies a penalty value on predictor variables to attempt to shrink less important variables.
+We investigated two types of logistic regressions: with and without penalty. The standard logistic regression model does not have any parameters to tune, and the penalized model applies a penalty value on predictor variables to attempt to shrink less important features. The two tuning parameters of interest are mixture and penalty. Mixture is a metric that will determine if the model is closer to a ridge regression or lasso regression and penalty measures how strongly the predictor variables are penalized, resulting in more shrinkage.
 
-There are two tuning parameters of interest mixture, which is a metric that will determine if the model is closer to a ridge regression or lasso regression; and penalty, which measures how strongly the predictor variables are penalized. For this model the optimal mixture is 0.208 and a penalty of 1.279e-10. When examining figure 7 we can see how larger penalty values incur worse performance. These values reflect how important all predictor variables are for identifying the class of the value. The ridge regression model does not reduce the values to zero like lasso, this reflects why the mixture value is relatively low. The small penalty value reflects the importance of all variables and how reducing all values proportionally does not benefit the model to a large degree.
 
 ```{r figure-X-pen-tune}
 #| fig.width: 6
-#| fig.height: 5
+#| fig.height: 3
 #| fig.align: center
-#| out.width: 70%
+#| out.width: 100%
 #| fig.cap: ROC based on penalty and mixture values. Left hand chart corresponds to penalty value, right hand chart corresponds to mixture.
 #| dev: "png"
 #| dpi: 100
 pen_tune_vis
 ```
-Our two metrics of interest for threshold selection are the j-index and sensitivity which can be seen in figures 8 and 9. The j-index represents a metric that captures the overall performance of the classification model at capturing both true negatives and true positives. Sensitivity is a measure that prioritizes minimizing false negatives. Depending on the circumstances both measures present important considerations for threshold selection. The j-index is ideal if trying to find a balance of overall performance; for our models this would be helpful when we have limited resources for first responders to try and go through many false positives. Maximizing sensitivity allows is ideal if there are large number of resources for first responders to ensure that no blue tarps are missed due to false negatives. For the logistic regression model the optimal threshold that maximizes the j-index is .05 and for sensitivity it is .01. For the penalized logistic regression model the optimal threshold that maximizes the j-index is .04 and for sensitivity it is .01. As the overall split of blue tarp vs non blue tarp is 3%, we will utilize the .05 threshold for the logistic regression and .04 for the penalized logistic regression.  Both these values maximize the j-index to find more of a balance between sensitivity and specificity, substantially reducing the number of false positives compared to the .01 threshold.
+
+For this model the parameters were tuned to mixture = 0.208 and penalty = 1.279e-10. From examining Figure 7, we can see that larger penalty values incur worse performance after about 10e-5. The relatively low mixture value causes the model to be closer to ridge regression, which does not reduce the coefficients of any predictors to zero like lasso. The optimal parameter values reflect how important all predictor variables are for identifying the class of the observation in the model, and that reducing all values proportionally does not benefit the model to a large degree. The ROC AUC value for the tuned model is 0.9986, while the untuned model has a ROC AUC of 0.9985. Because the difference between the models is very small based on penalty and AUC, a practical approach  may choose the standard logistic regression for its simplicity. However, if our purposes do not include interperateability, we may choose the penalized model if it shows even a slight advantage in predictive capability.
+
+
 
 ```{r figure-X-log-threshold-metrics}
+#| fig.width: 5
+#| fig.height: 4
 #| fig.align: center
 #| out.width: 70%
 #| fig.cap: Five metrics based on threshold value for the Logistic Regression model. Vertical lines show maximum j-index and sensitivity between 0.01 and 0.05.
@@ -873,7 +892,10 @@ Our two metrics of interest for threshold selection are the j-index and sensitiv
 log_tmetrics_plot
 ```
 
+
 ```{r figure-X-pen-threshold-metrics}
+#| fig.width: 5
+#| fig.height: 4
 #| fig.align: center
 #| out.width: 70%
 #| fig.cap: Five metrics based on threshold value for the Penalized Logistic Regression model. Vertical lines show maximum j-index and sensitivity between 0.01 and 0.04.
@@ -882,17 +904,45 @@ log_tmetrics_plot
 pen_tmetrics_plot
 ```
 
-The confusion matrices below shows the breakout of our values at the optimal thresholds for the Logistic Regression and Peanalized Logistic Regression Model respecively.
+Our two metrics of interest for threshold selection are the j-index and sensitivity which can be seen along with accuracy, precision, and specificity in Figures 8 and 9.  For the logistic regression model, threshold = 0.05 maximizes the j-index and threshold = 0.01 maximizes sensitivity. For the penalized logistic regression model, threshold = 0.04 maximizes the j-index and threshold = 0.01 maximizes sensitivity. As the overall split of blue tarp vs non blue tarp is 3%, we will utilize the .05 threshold for the standard logistic regression and .04 for the penalized logistic regression to maximize j-index. Selecting these thresholds will result in more of a balance between sensitivity and specificity, substantially reducing the number of false positives compared to the .01 threshold.
+
+The confusion matrices below show the breakdown of each model's predictions at the chosen thresholds.
+
+Standard Logistic Regression:
 
 ```{r log-conf-mat}
 log_train_cm
 ```
 
+Penalized Logistic Regression:
+
 ```{r pen-conf-mat}
 pen_train_cm
 ```
 
-To evaluate final model performance, we examine the models ROC AUC as a metric that captures its full performance across all thresholds. This flexibility allows leeway in case of changing threshold selection for prioritizing a different goal outcome. The AUC of the optimal logistic regression model is 0.9985 which indicates a very high performing model. The AUC of the optimal penalized logistic regression model is 0.9986 which also is a very high value.
+The confusion matrices show that the penalized model is more sensitive, resulting in fewer false negatives. However, it comes at the cost of almost 200 extra false positives. The j-index, sensitivity, specificity, accuracy and precision are as follows: 0.9634, 0.9871, 0.9763, 0.9868, 0.9992 for the standard model, and 0.9685, 0.9843, 0.9842, 0.0943, 0.9995 for the penalized model. We can see that the penalized model is more balanced across metrics, whereas the standard model prefers sensitivity over specificity. This preference stems from the trend shown in Figures 8 and 9, which show the sensitivity initially falling more steeply for the penalized model, pulling the maximal j-index to the left.
+
+The performance on new data is now investigated. The untuned model produced an ROC AUC of 0.9994 and the tuned model had an AUC of 0.9997, indicating higher performance that reflects the metrics from cross-validation. To investigate further, the confusion matrices on the holdout set are displayed below.
+
+Standard Logistic Regression:
+
+```{r}
+log_test_cm
+```
+
+Penalized Logistic Regression:
+
+```{r}
+pen_test_cm
+```
+
+Both models demonstrate almost perfect sensitivity, with the penalized model correctly identifying every blue tarp pixel. However, the one final pixel identified by the penalized model comes at the expense of over twelve thousand (12,000) misclassified pixels that are not of interest. Both models have extremely high sensitivity compared to the others and a much lower specificity.
+
+
+
+
+
+
 
 ## Boosting Model using XGBoost
 
@@ -1182,17 +1232,21 @@ svmr_test_cm <- conf_mat(svmr_test_preds,
                         estimate = .pred_class)
 ```
 
+# Results
+
 
 ```{r compare-models}
 # get all cross-validation plots and metrics
-cv_rocs <- ( log_cv_roc + pen_cv_roc  + knn_cv_roc) / ( lda_cv_roc + qda_cv_roc )
+cv_rocs <- ( log_cv_roc + pen_cv_roc  + knn_cv_roc) /
+  ( lda_cv_roc + qda_cv_roc + ens_cv_roc ) /
+  ( svml_cv_roc + svmp_cv_roc + svmr_cv_roc)
 
 compare_cv_metrics <- bind_rows(
-  log_cv_metrics %>% mutate(model = 'logistic regression'),
-  pen_cv_metrics %>% mutate(model = 'penalized logreg'),
+  knn_cv_metrics %>% mutate(model = 'KNN'),
   lda_cv_metrics %>% mutate(model = 'LDA'),
   qda_cv_metrics %>% mutate(model = 'QDA'),
-  knn_cv_metrics %>% mutate(model = 'KNN'),
+  log_cv_metrics %>% mutate(model = 'logreg'),
+  pen_cv_metrics %>% mutate(model = 'penalized log'),
   ens_cv_metrics %>% mutate(model = 'ensemble'),
   svml_cv_metrics %>% mutate(model = 'linear SVM'),
   svmp_cv_metrics %>% mutate(model = 'polynomial SVM'),
@@ -1204,11 +1258,11 @@ compare_cv_metrics <- bind_rows(
   dplyr::select(model, roc_auc)
 
 compare_threshold_metrics <- bind_rows(
-  log_threshold_metrics %>% mutate(model = 'logistic regression'),
-  pen_threshold_metrics %>% mutate(model = 'penalized logreg'),
+  knn_threshold_metrics %>% mutate(model = 'KNN'),
   lda_threshold_metrics %>% mutate(model = 'LDA'),
   qda_threshold_metrics %>% mutate(model = 'QDA'),
-  knn_threshold_metrics %>% mutate(model = 'KNN'),
+  log_threshold_metrics %>% mutate(model = 'logreg'),
+  pen_threshold_metrics %>% mutate(model = 'penalized log'),
   ens_threshold_metrics %>% mutate(model = 'ensemble'),
   svml_threshold_metrics %>% mutate(model = 'linear SVM'),
   svmp_threshold_metrics %>% mutate(model = 'polynomial SVM'),
@@ -1220,14 +1274,16 @@ compare_threshold_metrics <- bind_rows(
   mutate(threshold = c(.05, .04, .01, .015, .04)) 
 
 # get all metrics and plots on the holdout dataset
-test_rocs <- ( log_test_roc + pen_test_roc  + knn_test_roc) / ( lda_test_roc + qda_test_roc )
+test_rocs <- ( log_test_roc + pen_test_roc  + knn_test_roc) /
+  ( lda_test_roc + qda_test_roc + ens_test_roc ) /
+  ( svml_test_roc + svmp_test_roc_svmr_test_roc )
 
 compare_test_metrics <- bind_rows(
-  log_test_metrics %>% mutate(model = 'logistic regression'),
-  pen_test_metrics %>% mutate(model = 'penalized logreg'),
+  knn_test_metrics %>% mutate(model = 'KNN'),
   lda_test_metrics %>% mutate(model = 'LDA'),
   qda_test_metrics %>% mutate(model = 'QDA'),
-  knn_test_metrics %>% mutate(model = 'KNN'),
+  log_test_metrics %>% mutate(model = 'logreg'),
+  pen_test_metrics %>% mutate(model = 'penalized log'),
   ens_test_metrics %>% mutate(model = 'ensemble'),
   svml_test_metrics %>% mutate(model = 'linear SVM'),
   svmp_test_metrics %>% mutate(model = 'polynomial SVM'),
@@ -1235,13 +1291,31 @@ compare_test_metrics <- bind_rows(
 ) %>% 
   pivot_wider(id_cols = model,
               names_from = .metric,
-              values_from = mean)
+              values_from = .estimate)
+
+# create point plot to check for overfitting based on ROC AUC and j-index
+overfit_plot <- bind_rows(
+  compare_cv_metrics %>% 
+    dplyr::select(model, roc_auc) %>% 
+    mutate(data = 'cv'),
+  compare_threshold_metrics %>% 
+    dplyr::select(model, j_index) %>% 
+    mutate(data = 'train'),
+  compare_test_metrics %>% 
+    dplyr::select(model, roc_auc, j_index) %>% 
+    mutate(data = 'test')
+) %>% 
+  pivot_longer(cols = c(roc_auc, j_index)) %>% 
+  mutate(data = factor(data, levels = c('cv', 'train', 'test'))) %>% 
+  ggplot(aes(x = model, y = value, color = data)) +
+  geom_point(size = 2) +
+  facet_wrap(~name, scales = 'free') +
+  labs(x = '', y = 'metric value') +
+  theme(axis.text.x = element_text(angle = 30))
 
 ```
 
 
-
-# Results
 
 When making a final selection and recommendation of what model to use we first begin by evaluating the ROC AUC of all the models.  Figure 10 shows the ROC curves with Table 2 showing the AUC metric for each model. All of the ROC curves show excellent performance, which is confirmed by the AUC values. Every model has a very high AUC value with the lowest being the LDA at .9888 and the highest being the penalized logistic regression at .9986 (all within 1% of each other).  While the ROC does offer good insight into overall performance it does not provide the whole picture as to final model performance. 
 
