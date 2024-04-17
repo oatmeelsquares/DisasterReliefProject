@@ -18,6 +18,7 @@ library(ggcorrplot)
 library(GGally)
 library(discrim)
 library(patchwork)
+library(scales)
 library(doParallel)
 cl <- makePSOCKcluster(parallel::detectCores(logical = FALSE))
 registerDoParallel(cl)
@@ -184,7 +185,23 @@ data_full <- bind_rows(
   data_69_NOT,
   data_69_bt,
   data_78_bt,
-  data_78_NON)
+  data_78_NON) %>% 
+  rename('Red' = 'B1',
+         'Green' = 'B2',
+         'Blue' = 'B3') %>% 
+  mutate(Class = factor(Class, levels = c('Non-Tarp', 'Tarp')))
+
+display_colors <- function(r, g, b) {
+  pal <- rgb(r/255, g/255, b/255)
+  show_col(sample(pal, 500), labels = FALSE)
+}
+
+display_colors(data_67_BT$B1, data_67_BT$B2, data_67_BT$B3)
+display_colors(data_67_BT$B1, data_67_BT$B3, data_67_BT$B2)
+display_colors(data_67_BT$B2, data_67_BT$B1, data_67_BT$B3)
+display_colors(data_67_BT$B2, data_67_BT$B3, data_67_BT$B1)
+display_colors(data_67_BT$B3, data_67_BT$B1, data_67_BT$B2)
+display_colors(data_67_BT$B3, data_67_BT$B2, data_67_BT$B1)
 ```
 
 
