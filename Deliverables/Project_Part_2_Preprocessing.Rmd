@@ -27,25 +27,25 @@ registerDoParallel(cl)
 
 columns = c('ID', 'X','Y','Map X','Map Y','Lat','Lon','B1','B2','B3')
 
-data_67_BT <- read_table("orthovnir067_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+data_67_BT <- read_table("../orthovnir067_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
   select(-ID) %>% mutate(Class = as.factor("Tarp"))
 
-data_57_NON <- read_table("orthovnir057_ROI_NON_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+data_57_NON <- read_table("../orthovnir057_ROI_NON_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
   select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
 
-data_67_NOT <- read_table("orthovnir067_ROI_NOT_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+data_67_NOT <- read_table("../orthovnir067_ROI_NOT_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
   select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
 
-data_69_NOT <- read_table("orthovnir069_ROI_NOT_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+data_69_NOT <- read_table("../orthovnir069_ROI_NOT_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
   select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
 
-data_69_bt <- read_table("orthovnir069_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+data_69_bt <- read_table("../orthovnir069_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
   select(-ID) %>% mutate(Class = as.factor("Tarp"))
 
-data_78_bt <- read_table("orthovnir078_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+data_78_bt <- read_table("../orthovnir078_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
   select(-ID) %>% mutate(Class = as.factor("Tarp"))
 
-data_78_NON <- read_table("orthovnir078_ROI_NON_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+data_78_NON <- read_table("../orthovnir078_ROI_NON_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
   select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
   
 ```
