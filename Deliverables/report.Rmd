@@ -178,19 +178,6 @@ data_78_NON <- read_table("../orthovnir078_ROI_NON_Blue_Tarps.txt", skip = 8, co
 ```
 
 ```{r holdout EDA}
-data_full <- bind_rows(
-  data_67_BT,
-  data_57_NON,
-  data_67_NOT,
-  data_69_NOT,
-  data_69_bt,
-  data_78_bt,
-  data_78_NON) %>% 
-  rename('Red' = 'B1',
-         'Green' = 'B2',
-         'Blue' = 'B3') %>% 
-  mutate(Class = factor(Class, levels = c('Non-Tarp', 'Tarp')))
-
 display_colors <- function(r, g, b) {
   pal <- rgb(r/255, g/255, b/255)
   show_col(sample(pal, 500), labels = FALSE)
@@ -202,6 +189,16 @@ display_colors(data_67_BT$B2, data_67_BT$B1, data_67_BT$B3)
 display_colors(data_67_BT$B2, data_67_BT$B3, data_67_BT$B1)
 display_colors(data_67_BT$B3, data_67_BT$B1, data_67_BT$B2)
 display_colors(data_67_BT$B3, data_67_BT$B2, data_67_BT$B1)
+
+holdout <- bind_rows(
+  data_67_BT,
+  data_57_NON,
+  data_67_NOT,
+  data_69_NOT,
+  data_69_bt,
+  data_78_bt,
+  data_78_NON)
+
 ```
 
 
@@ -215,14 +212,14 @@ It can be helpful in our EDA to take a look at the holdout set to see how it com
 #| fig.cap: Count plot of Classes: Blue-Tarp and Non-Tarp
 #| dev: "png"
 #| dpi: 100
-ggplot(data_full, aes(Class), fill = Class)+
+ggplot(holdout, aes(Class), fill = Class)+
   geom_bar()+
   labs(title= "Count Plot of Classes for Holdout Set", x="Count")
 ```
 
 
 ```{r}
-table(data_full$Class) %>% knitr::kable(caption = "Count of Class for holdout set")
+table(holdout$Class) %>% knitr::kable(caption = "Count of Class for holdout set")
 ```
 
 In the box plots below of the blue-tarps versus the non-tarps, we can see that the distributions of the pixel values are slightly different between the training data and the hold out set. In assessing our final models, we need to make sure that we try to avoid models that overfit the training data as they may not perform as well on the test data.
@@ -235,24 +232,24 @@ In the box plots below of the blue-tarps versus the non-tarps, we can see that t
 #| fig.cap: Box plots of the pixel values broken out by each color and class for the hold-out set.
 #| dev: "png"
 #| dpi: 200
-bluedata_full <- data_full[data_full$Class == 'Tarp', ]
-otherdata_full<- data_full[data_full$Class == 'Non-Tarp',]
-g1_tarpden_full <- ggplot(bluedata_full,aes(x=B1))+
+blueholdout <- holdout[holdout$Class == 'Tarp', ]
+otherholdout<- holdout[holdout$Class == 'Non-Tarp',]
+g1_tarpden_full <- ggplot(blueholdout,aes(x=B1))+
   geom_boxplot()+
   labs(title= "Box plot of Red Pixel Value of Blue-tarps")
-g1_nontarpden_full <- ggplot(otherdata_full,aes(x=B1))+
+g1_nontarpden_full <- ggplot(otherholdout,aes(x=B1))+
   geom_boxplot()+
   labs(title= "Box plot of Red Pixel Value of Non-tarps")
-g2_tarpden_full <- ggplot(bluedata_full,aes(x=B2))+
+g2_tarpden_full <- ggplot(blueholdout,aes(x=B2))+
   geom_boxplot()+
   labs(title= "Box plot of Green Pixel Value of Blue-tarps")
-g2_nontarpden_full <- ggplot(otherdata_full,aes(x=B2))+
+g2_nontarpden_full <- ggplot(otherholdout,aes(x=B2))+
   geom_boxplot()+
   labs(title= "Box plot of Green Pixel Value of Non-tarps")
-g3_tarpden_full <- ggplot(bluedata_full,aes(x=B3))+
+g3_tarpden_full <- ggplot(blueholdout,aes(x=B3))+
   geom_boxplot()+
   labs(title= "Box plot of Blue Pixel Value of Blue-tarps")
-g3_nontarpden_full <- ggplot(otherdata_full,aes(x=B3))+
+g3_nontarpden_full <- ggplot(otherholdout,aes(x=B3))+
   geom_boxplot()+
   labs(title= "Box plot of Blue Pixel Value of Non-tarps")
 
@@ -288,6 +285,12 @@ As established during the EDA, the proportion of Blue Tarps to all other classes
 # Results of Model Fitting, Tuning Parameter Selection, and Evaluation
 
 ```{r convenience-functions}
+holdout <- holdout %>% 
+  rename('Red' = 'B1',
+         'Green' = 'B2',
+         'Blue' = 'B3') %>% 
+  mutate(Class = factor(Class, levels = c('Non-Tarp', 'Tarp')))
+
 # define functions to use later for convenience
 cv_control <- control_resamples(save_pred = TRUE)
 
