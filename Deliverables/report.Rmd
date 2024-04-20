@@ -683,7 +683,6 @@ qda_test_cm <- conf_mat(qda_test_preds,
                         estimate = .pred_class)
 ```
 
-
 The next model to be considered is based on quadratic discriminant analysis (QDA). We found that the model's AUC was 0.9982, which means it performs a lot better than a random model. The next step was selecting the best threshold based on sensitivity and j_index. We found that the maximum sensitivity is at a threshold of 0.01, while the maximum j-index was at 0.02. These metrics at each threshold value are shown within the threshold plot in Figure 6.
 
 
@@ -961,9 +960,6 @@ Both models demonstrate almost perfect sensitivity, with the penalized model cor
 
 
 
-
-
-
 ## Boosting Model using XGBoost
 
 ```{r ensemble - boost}
@@ -1041,7 +1037,7 @@ ens_threshold_metrics <- threshold_metrics(ens_threshold_preds,
                                            estimate = .pred_class)
 
 # get confusion matrix for chosen threshold
-ens_train_train_cm <- conf_mat(ens_threshold_preds,
+ens_train_cm <- conf_mat(ens_threshold_preds,
                                truth = Class,
                                estimate = .pred_class)
 
@@ -1061,6 +1057,49 @@ ens_test_cm <- conf_mat(ens_test_preds,
                         truth = Class,
                         estimate = .pred_class)
 ```
+
+We then chose to build a boosted tree model that creates an ensemble of decision trees based on the results of previous trees. We chose this decision tree model over a Random Tree model since it learns from previous results and can potentially provide us with a more accurate predictive model. We performed tuning on the parameters, tree_depth and learn_rate. Figure __ reveals the AUC for various parameter selections for this model. It reveals that the best learning rate is 0.316 with its best tree depth at 13. We will be keeping this model with these parameters as they give us the highest AUC of 0.9993.
+
+
+```{r figure-X-ens-tune}
+#| fig.width: 6
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: ROC AUC of the Boost model based on tree depth and learning rate.
+#| dev: "png"
+#| dpi: 100
+ens_tune_vis
+
+```
+
+
+We then needed to choose the most appropriate threshold for our model with our chosen parameters. Displayed below are various metrics plotted against increasing threshold values found using the same technique of ten-fold cross-validation that we used before. The plot reveals that the maximum sensitivity for this model is very slightly above zero at around .01 and the maximum J-index around the same at around .04. We will utilize the threshold where the J-index is at its greatest for our model, which is a threshold of 0.04.
+
+
+```{r figure-X-ens-threshold-metrics}
+#| fig.width: 5
+#| fig.height: 4
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Five metrics based on threshold value for the Boost model with tree depth = 13 and learning rate = 0.316. Vertical lines show maximum sensitivity and maximum j-index.
+#| dev: "png"
+#| dpi: 100
+ens_tmetrics_plot
+```
+
+The confusion matrix for the model with our chosen parameters is displayed below. It reveals that there are only five pixels mislabeled as Non-tarp when they are actually Tarp, which is great for this model. Five pixels would not make a large difference since many pixels will make up one Tarp. There are 626 pixels that are identified as Tarp when they are actually Non-Tarps, but that is also not too high of a number pixel-wise.
+
+```{r}
+ens_train_cm
+```
+
+When testing the fitting XGBoost model on the holdout set, the AUC is a little lower than the AUC for the training set at around 0.9699. It doesn't perform as well on the holdout set, but still performs very well overall. We can see in the confusion matrix displayed below that there are more tarp pixels missed by the model (617 vs 5 for the training data) and even more misidentified as Tarp when they are actually Non-tarp pixels. However, the holdout set is a great deal larger than the training data so it makes sense that more will be missed or misidentified. The percentage of tarps missed or falsely identified is slightly higher for the holdout set, but still considerably small and not concerning.
+
+```{r}
+ens_test_cm
+```
+
 
 ## Support Vector Machine Models
 
