@@ -1652,7 +1652,12 @@ The goal of this modeling is ultimately to assist in predicting blue tarps to as
 
 ## Conclusion 4
 
-We found that all of the methods performed very well, and there was no one clearly best method. Though the KNN model had the best sensitivity and j-index, which we considered to be the most important metrics, all of the models had very high metrics for not only j-index and sensitivity, but specificity, accuracy and precision as well. For this reason, we are more confident in our results because the models were able to reliably perform well on the data.
+** discussion or analysis justifying why your findings above are compatible or reconcilable. **
+
+We found our results ot be compatible because the same type of decision boundaries performed similarly across models. The performance of each of the models would be impacted by the shape of the data, and is especially apparent in the comparison of the LDA and QDA models. Even though the performance on the test dataset was comparable between the two, the QDA suffered more loss in j-index and ROC AUC between the training and holdout sets, while the LDA actually improved its performance metrics on the test set. This indicates that the QDA may have slightly overfit the training set in comparison to the LDA, and the true shape of the data may in fact fit a linear decision boundary better. In addition, all of the linear models (linear SVM and tuned/untuned logistic regression) had near-perfect ROC curves. The fact that the KNN and boosted models appeared overfitted and had the lowest AUCs on the holdout dataset indicates further that the assumptions of the other models are in fact true and the decreased bias error of these models does not make up for the variance error introduced by such a flexible method. However, the linear models suffered from lower j-index and accuracy overall on the holdout dataset, and the fact that the radial and polynomial SVMs performed better indicates that the boundary may be more complicated than just linear.
+
+
+
 
 
 
@@ -1660,6 +1665,11 @@ We found that all of the methods performed very well, and there was no one clear
 
 Throughout this process, we discovered that with larger data sets, some trade-offs are augmented and have larger impacts on results. The trade-off that had the most impact for us was the trade-off between computational time and parameter tuning. The more parameters we tuned or the more iterations we set for each model, the longer the computational time. In emergency situations like this, timely aid is extremely important, and sometimes predictive accuracy may need to be decreased in order to maximize the use of time and resources. Furthermore, sometimes it may be best to tune only one specific parameter depending on the context of the data. When training these algorithms, we needed to carefully choose our tuned parameters so that the computational time was not substantially long. As much as we wanted to tune many parameters, this was not realistic and we had to choose less tuning parameters in order to use our time efficiently and minimize computational time. We needed to find a balance between the amount of time it would take and the number of false positives and false negatives we would have to deal with. We kept these goals in mind when deciding on which model we would recommend.
 
+## Conclusion 6
+
+** A discussion of the relevance of the metrics calculated in the tables to this application context. **
+
+As was mentioned before in this report, sensitivity has been a very important performance measure in our analysis. It is essential to maximize the sensitivity (treu positive rate) of our predictive models because we want to be sure to find every blue tarp, each of which represents an actual person in need of help. Also discussed was j-index, which combines the measures of sensitivity and specificity to ive a more rounded picture of the model efficacy. Maintaining a high specificity metric will help us not waste resources on pixels identified as blue tarps which are actually areas of no interest. The other metrics displayed are accuracy and precision. The accuracy metric represents all correctly identified pixels. Accuracy also represents a combination of sensitivity and specificity, however it is less useful because a baseline model that predicts only non-tarps will already have a very high accuracy because of the rarity of blue tarps. Precision describes theproportion of predicted blue tarps which actually turned out to be blue tarps, and is another way of looking at how well our model avoids false positives, along with specificity. Again, this metric is a little less relevant to our analysis and, for our purposes, the relevant information is captured in the j-index.
 
 
 # Appendix
