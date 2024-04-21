@@ -18,8 +18,8 @@ library(ggcorrplot)
 library(GGally)
 library(discrim)
 library(patchwork)
-library(scales)
 library(doParallel)
+library(kernlab)
 cl <- makePSOCKcluster(parallel::detectCores(logical = FALSE))
 registerDoParallel(cl)
 ```
@@ -52,7 +52,7 @@ When viewing the boxplots, there appears to be some overlap of red and green pix
 
 ```{r EDA_Boxplots}
 #| fig.width: 6
-#| fig.height: 5
+#| fig.height: 7
 #| fig.align: center
 #| out.width: 70%
 #| fig.cap: Box plots of the pixel values broken out by each colour and class.
@@ -100,7 +100,7 @@ The bar chart and table 1 below highlight the values of Blue-tarps versus Non-Ta
 #| fig.height: 5
 #| fig.align: center
 #| out.width: 70%
-#| fig.cap: Count plot of Classes: Blue-Tarp and Non-Tarp
+#| fig.cap: Count plot of Classes Blue-Tarp and Non-Tarp
 #| dev: "png"
 #| dpi: 100
 data <- data %>% 
@@ -120,7 +120,7 @@ In the box plots below, we can again see the overlap of the red and green pixel 
 
 ```{r EDA_boxplot-binary}
 #| fig.width: 20
-#| fig.height: 5
+#| fig.height: 8
 #| fig.align: center
 #| out.width: 70%
 #| fig.cap: Box plots of the pixel values broken out by each color and class.
@@ -154,51 +154,44 @@ g3_nontarpden <- ggplot(otherdata,aes(x=Blue))+
 
 columns = c('ID', 'X','Y','Map X','Map Y','Lat','Lon','B1','B2','B3')
 
-data_67_BT <- read_table("../orthovnir067_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+data_67_BT <- read_table("orthovnir067_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
   select(-ID) %>% mutate(Class = as.factor("Tarp"))
 
-data_57_NON <- read_table("../orthovnir057_ROI_NON_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+data_57_NON <- read_table("orthovnir057_ROI_NON_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
   select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
 
-data_67_NOT <- read_table("../orthovnir067_ROI_NOT_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+data_67_NOT <- read_table("orthovnir067_ROI_NOT_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
   select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
 
-data_69_NOT <- read_table("../orthovnir069_ROI_NOT_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+data_69_NOT <- read_table("orthovnir069_ROI_NOT_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
   select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
 
-data_69_bt <- read_table("../orthovnir069_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+data_69_bt <- read_table("orthovnir069_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
   select(-ID) %>% mutate(Class = as.factor("Tarp"))
 
-data_78_bt <- read_table("../orthovnir078_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+data_78_bt <- read_table("orthovnir078_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
   select(-ID) %>% mutate(Class = as.factor("Tarp"))
 
-data_78_NON <- read_table("../orthovnir078_ROI_NON_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+data_78_NON <- read_table("orthovnir078_ROI_NON_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
   select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
   
 ```
 
 ```{r holdout EDA}
-display_colors <- function(r, g, b) {
-  pal <- rgb(r/255, g/255, b/255)
-  show_col(sample(pal, 500), labels = FALSE)
-}
-
-display_colors(data_67_BT$B1, data_67_BT$B2, data_67_BT$B3)
-display_colors(data_67_BT$B1, data_67_BT$B3, data_67_BT$B2)
-display_colors(data_67_BT$B2, data_67_BT$B1, data_67_BT$B3)
-display_colors(data_67_BT$B2, data_67_BT$B3, data_67_BT$B1)
-display_colors(data_67_BT$B3, data_67_BT$B1, data_67_BT$B2)
-display_colors(data_67_BT$B3, data_67_BT$B2, data_67_BT$B1)
-
-holdout <- bind_rows(
+data_full <- bind_rows(
   data_67_BT,
   data_57_NON,
   data_67_NOT,
   data_69_NOT,
   data_69_bt,
   data_78_bt,
-  data_78_NON)
+  data_78_NON) %>% 
+  rename('Red' = 'B1',
+         'Green' = 'B2',
+         'Blue' = 'B3') %>% 
+  mutate(Class = factor(Class, levels = c('Non-Tarp', 'Tarp')))
 
+holdout <- data_full %>% select(c(Class, Red, Green, Blue))
 ```
 
 
@@ -209,47 +202,47 @@ It can be helpful in our EDA to take a look at the holdout set to see how it com
 #| fig.height: 5
 #| fig.align: center
 #| out.width: 70%
-#| fig.cap: Count plot of Classes: Blue-Tarp and Non-Tarp
+#| fig.cap: Count plot of Classes Blue-Tarp and Non-Tarp
 #| dev: "png"
 #| dpi: 100
-ggplot(holdout, aes(Class), fill = Class)+
+ggplot(data_full, aes(Class), fill = Class)+
   geom_bar()+
   labs(title= "Count Plot of Classes for Holdout Set", x="Count")
 ```
 
 
 ```{r}
-table(holdout$Class) %>% knitr::kable(caption = "Count of Class for holdout set")
+table(data_full$Class) %>% knitr::kable(caption = "Count of Class for holdout set")
 ```
 
 In the box plots below of the blue-tarps versus the non-tarps, we can see that the distributions of the pixel values are slightly different between the training data and the hold out set. In assessing our final models, we need to make sure that we try to avoid models that overfit the training data as they may not perform as well on the test data.
 
 ```{r density full data}
 #| fig.width: 20
-#| fig.height: 5
+#| fig.height: 8
 #| fig.align: center
 #| out.width: 70%
 #| fig.cap: Box plots of the pixel values broken out by each color and class for the hold-out set.
 #| dev: "png"
 #| dpi: 200
-blueholdout <- holdout[holdout$Class == 'Tarp', ]
-otherholdout<- holdout[holdout$Class == 'Non-Tarp',]
-g1_tarpden_full <- ggplot(blueholdout,aes(x=B1))+
+bluedata_full <- data_full[data_full$Class == 'Tarp', ]
+otherdata_full<- data_full[data_full$Class == 'Non-Tarp',]
+g1_tarpden_full <- ggplot(bluedata_full,aes(x=Red))+
   geom_boxplot()+
   labs(title= "Box plot of Red Pixel Value of Blue-tarps")
-g1_nontarpden_full <- ggplot(otherholdout,aes(x=B1))+
+g1_nontarpden_full <- ggplot(otherdata_full,aes(x=Red))+
   geom_boxplot()+
   labs(title= "Box plot of Red Pixel Value of Non-tarps")
-g2_tarpden_full <- ggplot(blueholdout,aes(x=B2))+
+g2_tarpden_full <- ggplot(bluedata_full,aes(x=Green))+
   geom_boxplot()+
   labs(title= "Box plot of Green Pixel Value of Blue-tarps")
-g2_nontarpden_full <- ggplot(otherholdout,aes(x=B2))+
+g2_nontarpden_full <- ggplot(otherdata_full,aes(x=Green))+
   geom_boxplot()+
   labs(title= "Box plot of Green Pixel Value of Non-tarps")
-g3_tarpden_full <- ggplot(blueholdout,aes(x=B3))+
+g3_tarpden_full <- ggplot(bluedata_full,aes(x=Blue))+
   geom_boxplot()+
   labs(title= "Box plot of Blue Pixel Value of Blue-tarps")
-g3_nontarpden_full <- ggplot(otherholdout,aes(x=B3))+
+g3_nontarpden_full <- ggplot(otherdata_full,aes(x=Blue))+
   geom_boxplot()+
   labs(title= "Box plot of Blue Pixel Value of Non-tarps")
 
@@ -258,7 +251,7 @@ g3_nontarpden_full <- ggplot(otherholdout,aes(x=B3))+
 
 ```{r}
 #| fig.width: 20
-#| fig.height: 5
+#| fig.height: 8
 #| fig.align: center
 #| out.width: 70%
 #| fig.cap: Box plots of the pixel values broken out by each color and class for the training data.
@@ -285,12 +278,6 @@ As established during the EDA, the proportion of Blue Tarps to all other classes
 # Results of Model Fitting, Tuning Parameter Selection, and Evaluation
 
 ```{r convenience-functions}
-holdout <- holdout %>% 
-  rename('Red' = 'B1',
-         'Green' = 'B2',
-         'Blue' = 'B3') %>% 
-  mutate(Class = factor(Class, levels = c('Non-Tarp', 'Tarp')))
-
 # define functions to use later for convenience
 cv_control <- control_resamples(save_pred = TRUE)
 
@@ -342,7 +329,8 @@ test_metrics <- function(model_test_preds) {
 
 threshold_preds <- function(preds, threshold) {
     preds <- preds %>% 
-    mutate(.pred_class = factor(ifelse(.pred_Tarp >= threshold, 'Tarp', 'Non-Tarp')))
+    mutate(.pred_class = factor(ifelse(.pred_Tarp <= threshold, 'Non-Tarp', 'Tarp')))
+     
 }
 
 ```
@@ -658,6 +646,9 @@ qda_tmetrics_plot <- threshold_metric_plot(qda_thresh_perf, qda_max_sens, qda_ma
 qda_threshold <- as.numeric( (qda_max_sens[1, 1] + qda_max_j[1, 1]) / 2 )
 
 # get predictions and metrics based on chosen threshold
+
+knn_threshold_preds <- threshold_preds(knn_cv_preds, knn_threshold)
+
 qda_threshold_preds <- qda_cv_preds %>% 
  mutate(.pred_class = factor(ifelse(.pred_Tarp >= qda_threshold, 'Tarp', 'Non-Tarp')))
 
@@ -682,6 +673,7 @@ qda_test_cm <- conf_mat(qda_test_preds,
                         truth = Class,
                         estimate = .pred_class)
 ```
+
 
 The next model to be considered is based on quadratic discriminant analysis (QDA). We found that the model's AUC was 0.9982, which means it performs a lot better than a random model. The next step was selecting the best threshold based on sensitivity and j_index. We found that the maximum sensitivity is at a threshold of 0.01, while the maximum j-index was at 0.02. These metrics at each threshold value are shown within the threshold plot in Figure 6.
 
@@ -960,7 +952,14 @@ Both models demonstrate almost perfect sensitivity, with the penalized model cor
 
 
 
+
+
+
 ## Boosting Model using XGBoost
+
+
+We then chose to build a boosted tree model that creates an ensemble of decision trees based on the results of previous trees. We chose this decision tree model over a Random Tree model since it learns from previous results and can potentially provide us with a more accurate predictive model. We performed tuning on the parameters, tree_depth and learn_rate. Figure __ reveals the AUC for various parameter selections for this model. It reveals that the best learning rate is 0.316 with its best tree depth at 13. We will be keeping this model with these parameters as they give us the highest AUC of 0.9993.
+
 
 ```{r ensemble - boost}
 # define model spec
@@ -1002,7 +1001,7 @@ ens_cv_preds <-  collect_predictions(ens_fitcv)
 ens_cv_metrics <- collect_metrics(ens_fitcv)
 
 # get ROC plot for cross-validation
-ens_cv_roc <- roc_plot(ens_cv_preds, 'Boosting Model')
+ens_cv_roc <- roc_plot(ens_cv_preds, 'XGBoost Model')
 
 # get threshold selection info
 ens_thresh_perf <- probably::threshold_perf(ens_cv_preds,
@@ -1037,7 +1036,7 @@ ens_threshold_metrics <- threshold_metrics(ens_threshold_preds,
                                            estimate = .pred_class)
 
 # get confusion matrix for chosen threshold
-ens_train_cm <- conf_mat(ens_threshold_preds,
+ens_train_train_cm <- conf_mat(ens_threshold_preds,
                                truth = Class,
                                estimate = .pred_class)
 
@@ -1049,7 +1048,7 @@ ens_fit <- fit(ens_final,data)
 # get predictions and metrics for holdout data
 ens_test_preds <- threshold_preds(augment(ens_fit, new_data = holdout),
                                   ens_threshold)
-ens_test_roc <- roc_plot(ens_test_preds, "Boost Model")
+ens_test_roc <- roc_plot(ens_test_preds, "XGBoost Model")
 
 ens_test_metrics <- test_metrics(ens_test_preds)
 
@@ -1057,43 +1056,35 @@ ens_test_cm <- conf_mat(ens_test_preds,
                         truth = Class,
                         estimate = .pred_class)
 ```
-
-We then chose to build a boosted tree model that creates an ensemble of decision trees based on the results of previous trees. We chose this decision tree model over a Random Tree model since it learns from previous results and can potentially provide us with a more accurate predictive model. We performed tuning on the parameters, tree_depth and learn_rate. Figure __ reveals the AUC for various parameter selections for this model. It reveals that the best learning rate is 0.316 with its best tree depth at 13. We will be keeping this model with these parameters as they give us the highest AUC of 0.9993.
-
+We then needed to choose the most appropriate threshold for our model with our chosen parameters. Displayed below are various metrics plotted against increasing threshold values found using the same technique of ten-fold cross-validation that we used before. The plot reveals that the maximum sensitivity for this model is very slightly above zero at around .01 and the maximum J-index around the same at around .04. We will utilize the threshold where the J-index is at its greatest for our model, which is a threshold of 0.04.
 
 ```{r figure-X-ens-tune}
 #| fig.width: 6
-#| fig.height: 5
+#| fig.height: 3
 #| fig.align: center
-#| out.width: 70%
-#| fig.cap: ROC AUC of the Boost model based on tree depth and learning rate.
+#| out.width: 100%
+#| fig.cap: ROC values of the Boosted Gradient model that considers different learning rates along the tree depth
 #| dev: "png"
 #| dpi: 100
 ens_tune_vis
-
 ```
-
-
 We then needed to choose the most appropriate threshold for our model with our chosen parameters. Displayed below are various metrics plotted against increasing threshold values found using the same technique of ten-fold cross-validation that we used before. The plot reveals that the maximum sensitivity for this model is very slightly above zero at around .01 and the maximum J-index around the same at around .04. We will utilize the threshold where the J-index is at its greatest for our model, which is a threshold of 0.04.
-
 
 ```{r figure-X-ens-threshold-metrics}
 #| fig.width: 5
 #| fig.height: 4
 #| fig.align: center
 #| out.width: 70%
-#| fig.cap: Five metrics based on threshold value for the Boost model with tree depth = 13 and learning rate = 0.316. Vertical lines show maximum sensitivity and maximum j-index.
+#| fig.cap: Five metrics based on threshold value for the XGBoost Model. Vertical lines show maximum j-index and sensitivity between 0.01 and 0.04.
 #| dev: "png"
 #| dpi: 100
 ens_tmetrics_plot
 ```
-
 The confusion matrix for the model with our chosen parameters is displayed below. It reveals that there are only five pixels mislabeled as Non-tarp when they are actually Tarp, which is great for this model. Five pixels would not make a large difference since many pixels will make up one Tarp. There are 626 pixels that are identified as Tarp when they are actually Non-Tarps, but that is also not too high of a number pixel-wise.
 
 ```{r}
-ens_train_cm
+ens_train_train_cm
 ```
-
 When testing the fitting XGBoost model on the holdout set, the AUC is a little lower than the AUC for the training set at around 0.9699. It doesn't perform as well on the holdout set, but still performs very well overall. We can see in the confusion matrix displayed below that there are more tarp pixels missed by the model (617 vs 5 for the training data) and even more misidentified as Tarp when they are actually Non-tarp pixels. However, the holdout set is a great deal larger than the training data so it makes sense that more will be missed or misidentified. The percentage of tarps missed or falsely identified is slightly higher for the holdout set, but still considerably small and not concerning.
 
 ```{r}
@@ -1101,7 +1092,142 @@ ens_test_cm
 ```
 
 
+
+
+
 ## Support Vector Machine Models
+
+
+Support vector machines are models which frequently perform well in a wide variety of applications and are worth considering for this analysis. We analyzed support vector machines with three kernel types: linear, polynomial, and radial. Support vector machines have various tuning parameters to consider depending on the kernel chosen. The first parameter that is tuned for all models is cost, which represents a measure of how much leeway is given for observations to be on the incorrect side of the hyperplane. A larger C value creates a model with higher bias but lower variance and vice versa. Our next parameter is insensitivity margin, this indicates the value of the epsilon in the loss function. This value effectively determines the width of our area around the hyperplane for values that will be penalized. The polynomial kernel has a degree parameter that signifies the order of the kernel function (i.e. 2nd degree vs 3rd degree). The sigma in the radial function determines equates to standard deviation and represents how the decision boundary is drawn. A larger sigma will reduce variance but increase bias and vice versa.
+
+Our Linear SVM performed best with a cost of 31.49 and a margin of .14 This model allows for more flexibility which makes sense as the data set is one that likely does not fit a linear decision area. These parameters allow for the model to attempt to address this draw back and allow for more misclassifications of values. The Polynomial SVM highlights the potential deficiencies with the linear model when examining the parameter tuning. The lowest performing is a 1st degree (linear model) followed by a second and a 3rd degree as the best model. The optimal cost is .1 and the optimal margin is .003. This model has a much smaller cost and narrower margin relative to the linear model which creates a model with relatively higher variance but lower bias. These parameters also reflect how the data is likely to be non-linear in nature. The Radial SVM has a cost of 25.52, a margin of .13 and a Sigma of .006. The cost and margin here are more in line with the linear model though as the figure highlights, these parameters are relatively consistent throughout the range. This allows the radial function to be slightly more biased to the dataset and outperform when it comes to classifications.
+
+The two threshold metrics to evaluate for these models are the J-Index and sensitivity, which allow us to evaluate 
+
+
+```{r}
+## PART I ##
+# define model spec
+svml_spec <- svm_linear(mode = "classification", engine = "kernlab", cost = tune(),
+                        margin = tune()) 
+
+# define workflow
+svml_wf <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(svml_spec)
+
+# set tuning parameters
+svml_params <- extract_parameter_set_dials(svml_wf)
+
+# tune with grid (or fit resamples)
+svml_tune <- tune_bayes(svml_wf,
+                      resamples = resamples,
+                      metrics = metric_set(roc_auc),
+                      param_info = svml_params, iter = 20
+                      )
+
+# get tuning results visualization
+svml_tune_vis <- autoplot(svml_tune, metric = 'roc_auc')
+
+# finalize workflow and fit resamples with best parameters
+svml_best_params <- select_best(svml_tune, metric = 'roc_auc')
+
+svml_final <- svml_wf %>% 
+  finalize_workflow(svml_best_params)
+
+svml_fitcv <- fit_resamples(svml_final,
+                           resamples,
+                           control = cv_control
+                           )
+
+# collect predictions and roc_auc from cross-validated fit
+svml_cv_preds <-  collect_predictions(svml_fitcv)
+svml_cv_metrics <- collect_metrics(svml_fitcv)
+
+# get ROC plot for cross-validation
+svml_cv_roc <- roc_plot(svml_cv_preds, 'Linear SVM')
+
+# get threshold selection info
+svml_thresh_perf <- probably::threshold_perf(svml_cv_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = threshold_metrics)
+
+# get threshold for best sensitivity
+svml_max_sens <- svml_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+svml_max_j <- svml_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+svml_tmetrics_plot <- threshold_metric_plot(svml_thresh_perf, svml_max_sens, svml_max_j)
+
+# get best threshold
+svml_threshold <- as.numeric(svml_max_j[1,1])
+
+# get predictions and metrics based on chosen threshold
+svml_threshold_preds <- threshold_preds(svml_cv_preds, svml_threshold)
+
+svml_threshold_metrics <- threshold_metrics(svml_threshold_preds,
+                                           truth = Class,
+                                           estimate = .pred_class)
+
+# get confusion matrix for chosen threshold
+svml_train_train_cm <- conf_mat(svml_threshold_preds,
+                               truth = Class,
+                               estimate = .pred_class)
+
+## PART II ##
+# fit final workflow to training data
+svml_fit <- fit(svml_final, data)
+
+# get predictions and metrics for holdout data
+svml_test_preds <- threshold_preds(augment(svml_fit, new_data = holdout),
+                                  svml_threshold)
+svml_test_roc <- roc_plot(svml_test_preds, "Linear SVM")
+
+svml_test_metrics <- test_metrics(svml_test_preds)
+
+svml_test_cm <- conf_mat(svml_test_preds,
+                        truth = Class,
+                        estimate = .pred_class)
+```
+
+```{r figure-X-svml-tune}
+#| fig.width: 6
+#| fig.height: 3
+#| fig.align: center
+#| out.width: 100%
+#| fig.cap: Cost value for the SVM to the left that dictates cost for values outside of margin and insensitivty margin dictates tolerance levels of margin
+#| dev: "png"
+#| dpi: 100
+svml_tune_vis
+```
+```{r figure-X-svml-threshold-metrics}
+#| fig.width: 5
+#| fig.height: 4
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Five metrics based on threshold value for the Linear SVM Model. Vertical lines show maximum j-index and sensitivity between 0.01 and 0.04.
+#| dev: "png"
+#| dpi: 100
+svml_tmetrics_plot
+```
+```{r}
+svml_train_train_cm
+```
+
+```{r}
+svml_test_cm
+```
+
+
 
 ```{r}
 ## PART I ##
@@ -1143,7 +1269,7 @@ svmp_cv_preds <-  collect_predictions(svmp_fitcv)
 svmp_cv_metrics <- collect_metrics(svmp_fitcv)
 
 # get ROC plot for cross-validation
-svmp_cv_roc <- roc_plot(svmp_cv_preds, 'svmp')
+svmp_cv_roc <- roc_plot(svmp_cv_preds, 'Polynomial SVM')
 
 # get threshold selection info
 svmp_thresh_perf <- probably::threshold_perf(svmp_cv_preds,
@@ -1167,7 +1293,7 @@ svmp_max_j <- svmp_thresh_perf %>%
 svmp_tmetrics_plot <- threshold_metric_plot(svmp_thresh_perf, svmp_max_sens, svmp_max_j)
 
 # get best threshold
-svmp_threshold <- as.numeric(svmp_max_sens[1,1])
+svmp_threshold <- as.numeric(svmp_max_j[1,1])
 
 # get predictions and metrics based on chosen threshold
 svmp_threshold_preds <- threshold_preds(svmp_cv_preds, svmp_threshold)
@@ -1188,7 +1314,7 @@ svmp_fit <- fit(svmp_final, data)
 # get predictions and metrics for holdout data
 svmp_test_preds <- threshold_preds(augment(svmp_fit, new_data = holdout),
                                   svmp_threshold)
-svmp_test_roc <- roc_plot(svmp_test_preds, "svmp")
+svmp_test_roc <- roc_plot(svmp_test_preds, "Polynomial SVM")
 
 svmp_test_metrics <- test_metrics(svmp_test_preds)
 
@@ -1196,6 +1322,36 @@ svmp_test_cm <- conf_mat(svmp_test_preds,
                         truth = Class,
                         estimate = .pred_class)
 ```
+
+
+```{r figure-X-svmp-tune}
+#| fig.width: 6
+#| fig.height: 3
+#| fig.align: center
+#| out.width: 100%
+#| fig.cap: Cost value for the SVM to the left that dictates cost for values outside of margin, degree of interaction refers to the degree of the interaction term, insensitivty margin dictates tolerance levels of margin
+#| dev: "png"
+#| dpi: 100
+svmp_tune_vis
+```
+```{r figure-X-svmp-threshold-metrics}
+#| fig.width: 5
+#| fig.height: 4
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Five metrics based on threshold value for the Polynomial SVM Model. Vertical lines show maximum j-index and sensitivity between 0.01 and 0.04.
+#| dev: "png"
+#| dpi: 100
+svmp_tmetrics_plot
+```
+```{r}
+svmp_train_train_cm
+```
+
+```{r}
+svmp_test_cm
+```
+
 
 ```{r}
 ## PART I ##
@@ -1211,11 +1367,12 @@ svmr_wf <- workflow() %>%
 # set tuning parameters
 svmr_params <- extract_parameter_set_dials(svmr_wf)
 
+
 # tune with grid (or fit resamples)
-svmr_tune <- tune_bayes(svmr_wf,
+svmr_tune <- tune_grid(svmr_wf,
                       resamples = resamples,
-                      metrics = metric_set(roc_auc),
-                      param_info = svmr_params, iter = 20
+                      grid = grid_random(svmr_params, size = 10),
+                      control = cv_control
                       )
 
 # get tuning results visualization
@@ -1237,7 +1394,7 @@ svmr_cv_preds <-  collect_predictions(svmr_fitcv)
 svmr_cv_metrics <- collect_metrics(svmr_fitcv)
 
 # get ROC plot for cross-validation
-svmr_cv_roc <- roc_plot(svmr_cv_preds, 'svmr')
+svmr_cv_roc <- roc_plot(svmr_cv_preds, 'Radial SVM')
 
 # get threshold selection info
 svmr_thresh_perf <- probably::threshold_perf(svmr_cv_preds,
@@ -1261,7 +1418,7 @@ svmr_max_j <- svmr_thresh_perf %>%
 svmr_tmetrics_plot <- threshold_metric_plot(svmr_thresh_perf, svmr_max_sens, svmr_max_j)
 
 # get best threshold
-svmr_threshold <- as.numeric(svmp_max_sens[1,1])
+svmr_threshold <- as.numeric(svmr_max_j[1,1])
 
 # get predictions and metrics based on chosen threshold
 svmr_threshold_preds <- threshold_preds(svmr_cv_preds, svmr_threshold)
@@ -1282,7 +1439,7 @@ svmr_fit <- fit(svmr_final, data)
 # get predictions and metrics for holdout data
 svmr_test_preds <- threshold_preds(augment(svmr_fit, new_data = holdout),
                                   svmr_threshold)
-svmr_test_roc <- roc_plot(svmr_test_preds)
+svmr_test_roc <- roc_plot(svmr_test_preds, "Radial SVM")
 
 svmr_test_metrics <- test_metrics(svmr_test_preds)
 
@@ -1290,6 +1447,32 @@ svmr_test_cm <- conf_mat(svmr_test_preds,
                         truth = Class,
                         estimate = .pred_class)
 ```
+```{r figure-X-svmr-tune}
+#| fig.width: 6
+#| fig.height: 3
+#| fig.align: center
+#| out.width: 100%
+#| fig.cap: Cost value for the SVM to the left that dictates cost for values outside of margin,insensitivty margin dictates tolerance levels of margin, sigma represents how flexible the decision boundary is with larger numbers being more biased
+#| dev: "png"
+#| dpi: 100
+svmr_tune_vis
+```
+```{r figure-X-svmr-threshold-metrics}
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Five metrics based on threshold value for the Radial SVM Model. Vertical lines show maximum j-index and sensitivity between 0.01 and 0.04.
+#| dev: "png"
+#| dpi: 100
+svmr_tmetrics_plot
+```
+```{r}
+svmr_train_train_cm
+```
+
+```{r}
+svmr_test_cm
+```
+
 
 # Results
 
@@ -1306,7 +1489,7 @@ compare_cv_metrics <- bind_rows(
   qda_cv_metrics %>% mutate(model = 'QDA'),
   log_cv_metrics %>% mutate(model = 'logreg'),
   pen_cv_metrics %>% mutate(model = 'penalized log'),
-  ens_cv_metrics %>% mutate(model = 'ensemble'),
+  ens_cv_metrics %>% mutate(model = 'XGBoost'),
   svml_cv_metrics %>% mutate(model = 'linear SVM'),
   svmp_cv_metrics %>% mutate(model = 'polynomial SVM'),
   svmr_cv_metrics %>% mutate(model = 'radial SVM')
@@ -1322,20 +1505,24 @@ compare_threshold_metrics <- bind_rows(
   qda_threshold_metrics %>% mutate(model = 'QDA'),
   log_threshold_metrics %>% mutate(model = 'logreg'),
   pen_threshold_metrics %>% mutate(model = 'penalized log'),
-  ens_threshold_metrics %>% mutate(model = 'ensemble'),
-  svml_threshold_metrics %>% mutate(model = 'linear SVM'),
-  svmp_threshold_metrics %>% mutate(model = 'polynomial SVM'),
-  svmr_threshold_metrics %>% mutate(model = 'radial SVM')
+  ens_threshold_metrics %>% mutate(model = 'XGBoost'),
+  svml_threshold_metrics %>% mutate(model = 'Linear SVM'),
+  svmp_threshold_metrics %>% mutate(model = 'Polynomial SVM'),
+  svmr_threshold_metrics %>% mutate(model = 'Radial SVM')
 ) %>% 
   pivot_wider(id_cols = model,
               names_from = .metric,
               values_from = .estimate) %>% 
-  mutate(threshold = c(.05, .04, .01, .015, .04)) 
+  mutate(threshold = c(knn_threshold, lda_threshold, qda_threshold, log_threshold,
+                       pen_threshold, ens_threshold, svml_threshold, svmp_threshold,
+                       svmr_threshold)) %>% 
+  rename(sensitivity = "specificity",
+         specificity = "sensitivity")
 
 # get all metrics and plots on the holdout dataset
 test_rocs <- ( log_test_roc + pen_test_roc  + knn_test_roc) /
   ( lda_test_roc + qda_test_roc + ens_test_roc ) /
-  ( svml_test_roc + svmp_test_roc_svmr_test_roc )
+  ( svml_test_roc + svmp_test_roc + svmr_test_roc )
 
 compare_test_metrics <- bind_rows(
   knn_test_metrics %>% mutate(model = 'KNN'),
@@ -1343,14 +1530,16 @@ compare_test_metrics <- bind_rows(
   qda_test_metrics %>% mutate(model = 'QDA'),
   log_test_metrics %>% mutate(model = 'logreg'),
   pen_test_metrics %>% mutate(model = 'penalized log'),
-  ens_test_metrics %>% mutate(model = 'ensemble'),
-  svml_test_metrics %>% mutate(model = 'linear SVM'),
-  svmp_test_metrics %>% mutate(model = 'polynomial SVM'),
-  svmr_test_metrics %>% mutate(model = 'radial SVM')
+  ens_test_metrics %>% mutate(model = 'XGBoost'),
+  svml_test_metrics %>% mutate(model = 'Linear SVM'),
+  svmp_test_metrics %>% mutate(model = 'Polynomial SVM'),
+  svmr_test_metrics %>% mutate(model = 'Radial SVM')
 ) %>% 
   pivot_wider(id_cols = model,
               names_from = .metric,
-              values_from = .estimate)
+              values_from = .estimate) %>% 
+  rename(sensitivity = "specificity",
+         specificity = "sensitivity")
 
 # create point plot to check for overfitting based on ROC AUC and j-index
 overfit_plot <- bind_rows(
@@ -1376,33 +1565,65 @@ overfit_plot <- bind_rows(
 
 
 
-When making a final selection and recommendation of what model to use we first begin by evaluating the ROC AUC of all the models.  Figure 10 shows the ROC curves with Table 2 showing the AUC metric for each model. All of the ROC curves show excellent performance, which is confirmed by the AUC values. Every model has a very high AUC value with the lowest being the LDA at .9888 and the highest being the penalized logistic regression at .9986 (all within 1% of each other).  While the ROC does offer good insight into overall performance it does not provide the whole picture as to final model performance. 
+When making a final selection and recommendation of what model to use we begin by evaluating the CV ROC of all the models.  Figure 23 shows the ROC curves with Table 3 showing the AUC metric for each model. All of the ROC curves show excellent performance, which is confirmed by the AUC values. Every model has a very high AUC value with the lowest being the LDA at .9888 and the highest being the Polynomial SVM at .9996 (all within about 1% of each other). 
+
+Table 4 shows the other metrics for each model on the training dataset at a given threshold (refer to the previous section for a discussion of threshold selection). All of the models perform similarly with KNN having the highest sensitivity and Polynomial SVM having the highest j-index. The j-index ranges from 0.8648 for the LDA to 0.9876 for the KNN model.  The sensitivity ranges from 0.9717 for the QDA to 0.9952 for the KNN model. 
 
 ```{r figure-X-ROC-metrics}
 #| fig.align: center
-#| out.width: 70%
-#| fig.cap: ROC plots for all models from top row Logistic, Penalized, KNN  Bottom row LDA, QDA
-#| dev: "png"
+#| fig.width: 18
+#| fig.height: 18
+#| out.width: 100%
+#| fig.cap: CV ROC plots for all models
 #| dpi: 100
 cv_rocs
 ```
 
 ```{r table-2-metrics}
-compare_cv_metrics %>% knitr::kable(caption = "Comparison of cross-validated AUC for all models")
+compare_cv_metrics %>% knitr::kable(caption = "Comparison of cross-validated AUC for all models", digits = 4)
 ```
 
-Table 3 shows the other metrics for each model at a given threshold (refer to section 3.5 for a discussion of threshold selection). All of the models perform similarly with KNN having the highest j-index and sensitivity. The j-index ranges from 0.8648 for the LDA to 0.9830 for the KNN model.  The sensitivity ranges from 0.9659 for the QDA to 0.9959 for the KNN model. 
+
 
 ```{r table-3-metrics}
-compare_threshold_metrics %>% knitr::kable(caption = "Comparison of Threshold Metrics for all models")
+compare_threshold_metrics %>% knitr::kable(caption = "Comparison of Threshold Metrics for all models", digits = 4)
 ```
+Next we evaluate the ROC of all the models on the holdout dataset. Figure 24 shows the ROC curves with Table 5 showing the AUC metric for each model. The penalized logistic regression has the highest AUC at 0.9996 with the polynomial SVM coming in a close second with 0.9995. Every model has a very high AUC value. The KNN trails the other models at 0.9643, whereas all of the other models have values above 0.99. 
 
+Table 5 shows all metrics for each model on the holdout dataset at the chosen threshold (refer to the previous section for a discussion of threshold selection). The j-index values range from 0.8964 for penalized logistic regression to 0.9487 for the polynomial SVM. We noticed that three different models -- penalized logistic, polynomial SVM, and radial SVM had a true positive rate of 100%. The logistic regression and the linear SVM are both 0.9999. The KNN had the lowest sensitivity at 0.9290.
+
+Finally we evaluated the models for over and underfitting. Figure 25 shows the results of this analysis. None of the models show a large difference between the training and the holdout datasets with respect to j-index or ROC AUC. The XGBoost model and the KNN model have the largest discrepancy between the cross validation and holdout AUCs. Even though the objective loss was only 3% these two models were top performers based on the CV metrics and the other models did not drop off as much. In conjunction these two observations indicate that the XGBoost and KNN models may be overfitted.  
 
 
 
 ```{r table-4-metrics}
-compare_test_metrics %>% knitr::kable(caption = "Comparison of Metrics on Holdout Dataset for all models")
+compare_test_metrics %>% knitr::kable(caption = "Comparison of Metrics on Holdout Dataset for all models", digits = 4)
 ```
+```{r figure-X-ROC-test-metrics}
+#| fig.align: center
+#| fig.width: 18
+#| fig.height: 18
+#| out.width: 100%
+#| fig.cap: Holdout ROC plots for all models
+#| dpi: 100
+test_rocs
+```
+
+
+```{r figure-X-overfit-plots}
+#| fig.align: center
+#| fig.width: 10
+#| fig.height: 5
+#| out.width: 70%
+#| fig.cap: Plot showing J Index and ROC AUC Values of all plots to compare for potential overfitting
+#| dev: "png"
+#| dpi: 100
+overfit_plot
+```
+
+
+# Conclusion
+
 
 # Conclusion
 
@@ -1410,19 +1631,34 @@ compare_test_metrics %>% knitr::kable(caption = "Comparison of Metrics on Holdou
 
 ## Conclusion 1
 
-We concluded that the KNN method results in the best algorithm that classifies each pixel as a blue tarp pixel or a non-tarp pixel after the performance metrics for each model were assessed. While it is important to consider all metrics when determining the best model, in this context, it is most important to identify the majority of the tarp pixels and limit the number of false negatives so that we can locate most of the displaced persons. The sensitivity and j-index were the metrics that we mainly focused on with this goal in mind. The KNN model had the highest j-index and the highest sensitivity out of all of the models so that is the one that we believe will be most useful and accurate in identifying blue tarps. This model will play a major role in providing resources to displaced persons and potentially saving human lives.
+**A recommendation and rationale regarding which algorithm to use for detection of blue tarps.**
+
+We recommend the polynomial support vector machine as the algorithm to use for the detection of blue tarps. We found that this method results in the best algorithm that classifies each pixel as blue tarp pixel or a non-tarp pixel after the performance metrics for each model were assessed on the holdout set. The polynomial support vector machine model had the best performance or close to the best performance for multiple metrics such as AUC, J-index, and sensitivity. While it is important to consider all metrics when determining the best model, in this context, it is most important to identify the majority of the tarp pixels and limit the number of false negatives so that we can locate most of the displaced persons. The sensitivity and j-index were the metrics that we mainly focused on with this goal in mind. The polynomial support vector machine model had the highest J-index and one of the highest sensitivity values when tested using the hold-out set. For these reasons, we believe the polynomial support vector machine model will be most useful and accurate in identifying blue tarps. This model will play a major role in providing resources to displaced persons and potentially saving human lives.
+
 
 ## Conclusion 2
+
+**A discussion of the best performing algorithm(s) in the cross-validation and hold-out data. (they may not be the same)**
+
+The models that performed the best in cross-validation were the polynomial support vector machine model, the radial support vector machine model, and the XGBoost model. The polynomial support vector machine model had the highest AUC, followed by the radial support vector machine model, and then the XGBoost model. Their AUCs were very high, but they were not much higher than the AUCs for the other models with the lowest being an AUC of 0.9888 for LDA. While all models perform well on the data, the best performing models indicate that the data benefits from some non-linear flexibility and separation when trained and tested with the training data. This is demonstrated by the polynomial support vector machine performing better than the linear algorithms, such as the LDA model and the linear support vector model. However, even though these non-linear models perform better, it is important to keep in mind that they don't perform substantially better and the linear models still have a great performance based on AUC. This could potentially mean that while the data requires some separation flexibility, it may not require the a large amount of flexibility that other models may provide, especially when it comes to the hold-out data.
+
+The models that performed the best on the hold-out set based on AUC were the penalized logistic regression model and the polynomial support vector machine model. The AUCs of these models were very close at 0.9997 and 0.9995, respectively. It is important to note that the polynomial support vector machine model also had one of the best performances in cross-validation on the training set, which tells us it may be one of the best models for this data. The model that performed the worse was the KNN model with an AUC of 0.9643. Again, all models performed very well, but this time flexibility was not as valuable. The high AUC of the penalized logistic regression model revealed that the hold-out set potentially required less flexibility than the training set. When J-index was considered, the polynomial support vector machine model continued to be the best model with the LDA model following behind. This further demonstrates that algorithms with some flexibility perform best on the hold-out set, however it is a bit contradictory that a non-linear model and a linear model performed the best here. Based on these results, we could see that it would be important for us to consider a few metrics when deciding on our recommended model. In terms of sensitivity, the penalized logistic regression model, the polynomial support vector machine model, and the radial support vector machine model all performed the best, which further instilled the idea that some flexibility and non-linearity is valuable, but only to a certain extent.
+
+
+## Conclusion 3
 
 The goal of this modeling is ultimately to assist in predicting blue tarps to assist humanitarian efforts in the result of a natural disaster.  With that in mind, one area that presented a fascinating part of follow on research was the threshold selection. We ultimately selected the model with an optimal J-index but for any sort of model selection coordinating with a response team is crucial to determining a final threshold. Natural disasters often necessitate extremely fast response time as the first 24 hours are vital in saving lives. With that in mind, we asserted that resources are somewhat limited and balancing false positives and false negatives was more valuable than committing to reducing false negatives. In real world scenarios, developing a model in conjunction with subject matter experts is integral to the process in ensuring that effective prioritization of metrics is done to align with the objective of the analysis.
 
 
-## Conclusion 3
+## Conclusion 4
 
 We found that all of the methods performed very well, and there was no one clearly best method. Though the KNN model had the best sensitivity and j-index, which we considered to be the most important metrics, all of the models had very high metrics for not only j-index and sensitivity, but specificity, accuracy and precision as well. For this reason, we are more confident in our results because the models were able to reliably perform well on the data.
 
 
 
+## Conclusion 5
+
+Throughout this process, we discovered that with larger data sets, some trade-offs are augmented and have larger impacts on results. The trade-off that had the most impact for us was the trade-off between computational time and parameter tuning. The more parameters we tuned or the more iterations we set for each model, the longer the computational time. In emergency situations like this, timely aid is extremely important, and sometimes predictive accuracy may need to be decreased in order to maximize the use of time and resources. Furthermore, sometimes it may be best to tune only one specific parameter depending on the context of the data. When training these algorithms, we needed to carefully choose our tuned parameters so that the computational time was not substantially long. As much as we wanted to tune many parameters, this was not realistic and we had to choose less tuning parameters in order to use our time efficiently and minimize computational time. We needed to find a balance between the amount of time it would take and the number of false positives and false negatives we would have to deal with. We kept these goals in mind when deciding on which model we would recommend.
 
 
 
