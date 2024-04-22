@@ -55,7 +55,7 @@ When viewing the boxplots, there is some overlap of red and green values for the
 #| fig.height: 7
 #| fig.align: center
 #| out.width: 70%
-#| fig.cap: Box plots of the pixel values broken out by each colour and class.
+#| fig.cap: Box plots of the training data pixel values broken out by each colour and class.
 #| dev: "png"
 #| dpi: 100
 g1_box <- ggplot(data, aes(x=Class, y=Red))+
@@ -81,7 +81,7 @@ The count plot in Fgiure 2 displays the total counts grouped by class for the tr
 #| fig.height: 5
 #| fig.align: center
 #| out.width: 70%
-#| fig.cap: Count plot of total counts broken out by each class
+#| fig.cap: Count plot of total counts for the training data broken out by each class
 #| dev: "png"
 #| dpi: 100
 ggplot(data, aes(Class))+
@@ -99,7 +99,7 @@ Both the bar chart in Figure 3 and Table 1 highlight the values of Blue-tarps ve
 #| fig.height: 5
 #| fig.align: center
 #| out.width: 70%
-#| fig.cap: Count plot of Classes Blue-Tarp and Non-Tarp
+#| fig.cap: Count plot of Classes Blue-Tarp and Non-Tarp for the training data
 #| dev: "png"
 #| dpi: 100
 data <- data %>% 
@@ -122,7 +122,7 @@ In the box plots in Figure 4, we can again see the overlap of the red and green 
 #| fig.height: 8
 #| fig.align: center
 #| out.width: 70%
-#| fig.cap: Box plots of the pixel values broken out by each color and class.
+#| fig.cap: Box plots of the training data pixel values broken out by each color and class.
 #| dev: "png"
 #| dpi: 200
 bluedata <- data[data$Class == 'Tarp', ]
@@ -201,7 +201,7 @@ We now examine the holdout set to see how it compares to our training set. In Fi
 #| fig.height: 5
 #| fig.align: center
 #| out.width: 70%
-#| fig.cap: Count plot of Classes Blue-Tarp and Non-Tarp
+#| fig.cap: Count plot of Classes Blue-Tarp and Non-Tarp for the hold-out set.
 #| dev: "png"
 #| dpi: 100
 ggplot(data_full, aes(Class), fill = Class)+
