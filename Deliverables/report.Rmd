@@ -979,7 +979,7 @@ Both models demonstrate almost perfect sensitivity, with the penalized model cor
 ## Boosting Model using XGBoost
 
 
-We then chose to build a boosted tree model that creates an ensemble of decision trees based on the results of previous trees. We chose this decision tree model over a Random Tree model since it learns from previous results and can potentially provide us with a more accurate predictive model. We performed tuning on the parameters, tree_depth and learn_rate. Figure 15 reveals the AUC for various parameter selections for this model. It reveals that the best learning rate is 0.316 with its best tree depth at 13. We will be keeping this model with these parameters as they give us the highest AUC of 0.9993.
+Next we investigate a boosted tree model that creates an ensemble of decision trees based on the results of previous trees. We chose this decision tree model over a Random Tree model since it learns from previous results and can potentially provide us with a more accurate predictive model. We performed tuning on the parameters tree_depth and learn_rate. Figure 15 shows the AUC for various parameter selections for this model. It reveals that the best learning rate is 0.316 with its best tree depth at 13. We will be keeping this model with these parameters as they give us the highest AUC of 0.9993.
 
 
 ```{r ensemble - boost}
@@ -1077,7 +1077,7 @@ ens_test_cm <- conf_mat(ens_test_preds,
                         truth = Class,
                         estimate = .pred_class)
 ```
-We then needed to choose the most appropriate threshold for our model with our chosen parameters. Displayed below are various metrics plotted against increasing threshold values found using the same technique of ten-fold cross-validation that we used before. The plot reveals that the maximum sensitivity for this model is very slightly above zero at around .01 and the maximum J-index around the same at around .04. We will utilize the threshold where the J-index is at its greatest for our model, which is a threshold of 0.04.
+We then choose the most appropriate threshold for our model with our chosen parameters. Displayed in Figure 16 are various metrics plotted against increasing threshold values. The plot reveals that the maximum sensitivity for this model is very slightly above zero at around .01 and the maximum J-index around the same at around .04. We will utilize the threshold where the j-index is at its greatest for our model, which is a threshold of 0.04.
 
 ```{r figure-X-ens-tune}
 #| fig.width: 6
@@ -1089,7 +1089,6 @@ We then needed to choose the most appropriate threshold for our model with our c
 #| dpi: 100
 ens_tune_vis
 ```
-We then needed to choose the most appropriate threshold for our model with our chosen parameters. Displayed below are various metrics plotted against increasing threshold values found using the same technique of ten-fold cross-validation that we used before. The plot reveals that the maximum sensitivity for this model is very slightly above zero at around .01 and the maximum J-index around the same at around .04. We will utilize the threshold where the J-index is at its greatest for our model, which is a threshold of 0.04.
 
 ```{r figure-X-ens-threshold-metrics}
 #| fig.width: 5
@@ -1101,12 +1100,12 @@ We then needed to choose the most appropriate threshold for our model with our c
 #| dpi: 100
 ens_tmetrics_plot
 ```
-The confusion matrix for the model with our chosen parameters is displayed below. It reveals that there are only five pixels mislabeled as Non-tarp when they are actually Tarp, which is great for this model. Five pixels would not make a large difference since many pixels will make up one Tarp. There are 626 pixels that are identified as Tarp when they are actually Non-Tarps, but that is also not too high of a number pixel-wise.
+The confusion matrix for the model with our chosen parameters on the training dataset is displayed below. It reveals that there are only five pixels mislabeled as Non-tarp when they are actually Tarp, which indicates a good model fit. Five pixels would not make a large difference since many pixels will make up one Tarp. There are 626 pixels that are identified as Tarp when they are actually Non-Tarps, but that is also not too high of a number pixel-wise.
 
 ```{r}
 ens_train_train_cm
 ```
-When testing the fitting XGBoost model on the holdout set, the AUC is a little lower than the AUC for the training set at around 0.9699. It doesn't perform as well on the holdout set, but still performs very well overall. We can see in the confusion matrix displayed below that there are more tarp pixels missed by the model (617 vs 5 for the training data) and even more misidentified as Tarp when they are actually Non-tarp pixels. However, the holdout set is a great deal larger than the training data so it makes sense that more will be missed or misidentified. The percentage of tarps missed or falsely identified is slightly higher for the holdout set, but still considerably small and not concerning.
+When testing the fitted XGBoost model on the holdout set, the AUC is a little lower than the AUC for the training set at around 0.9699. We notice a drop in performance, but the model still performs very well overall. We can see in the confusion matrix displayed below that there are more tarp pixels missed (617 vs 5 for the training data) and even more misidentified as Tarp when they are actually Non-Tarp pixels. However, the holdout set is a great deal larger than the training data so it makes sense that more will be missed or misidentified. The percentage of tarps missed or falsely identified is slightly higher for the holdout set, but still considerably small and not concerning.
 
 ```{r}
 ens_test_cm
@@ -1114,16 +1113,9 @@ ens_test_cm
 
 
 
-
-
 ## Support Vector Machine Models
 
 
-Support vector machines are models which frequently perform well in a wide variety of applications and are worth considering for this analysis. We analyzed support vector machines with three kernel types: linear, polynomial, and radial. Support vector machines have various tuning parameters to consider depending on the kernel chosen. The first parameter that is tuned for all models is cost, which represents a measure of how much leeway is given for observations to be on the incorrect side of the hyperplane. A larger C value creates a model with higher bias but lower variance and vice versa. Our next parameter is insensitivity margin, this indicates the value of the epsilon in the loss function. This value effectively determines the width of our area around the hyperplane for values that will be penalized. The polynomial kernel has a degree parameter that signifies the order of the kernel function (i.e. 2nd degree vs 3rd degree). The sigma in the radial function determines equates to standard deviation and represents how the decision boundary is drawn. A larger sigma will reduce variance but increase bias and vice versa.
-
-Our Linear SVM performed best with a cost of 31.49 and a margin of .14 This model allows for more flexibility which makes sense as the data set is one that likely does not fit a linear decision area. These parameters allow for the model to attempt to address this draw back and allow for more misclassifications of values. The Polynomial SVM highlights the potential deficiencies with the linear model when examining the parameter tuning. The lowest performing is a 1st degree (linear model) followed by a second and a 3rd degree as the best model. The optimal cost is .1 and the optimal margin is .003. This model has a much smaller cost and narrower margin relative to the linear model which creates a model with relatively higher variance but lower bias. These parameters also reflect how the data is likely to be non-linear in nature. The Radial SVM has a cost of 25.52, a margin of .13 and a Sigma of .006. The cost and margin here are more in line with the linear model though as Figures 17 and 19 highlight, these parameters are relatively consistent throughout the range. This allows the radial function to be slightly more biased to the dataset and outperform when it comes to classifications.
-
-The two threshold metrics to evaluate for these models are the J-Index and sensitivity. These measures represent two different approaches to optimize the model with the j-index being a more balance approach that takes into account both sensitivity and specificity. The three thresholds for each model are 0.06, 0.03, and 0.02 for the linear, polynomial, and radial SVM models respectively. For optimization purposes we utilize the j-index as the metric to select the threshold. This allows us to approach the final problem with more flexibility depending on our final objective constraints with false positives and false negatives.
 
 
 ```{r}
@@ -1218,36 +1210,6 @@ svml_test_metrics <- test_metrics(svml_test_preds)
 svml_test_cm <- conf_mat(svml_test_preds,
                         truth = Class,
                         estimate = .pred_class)
-```
-
-```{r figure-X-svml-tune}
-#| fig.width: 6
-#| fig.height: 3
-#| fig.align: center
-#| out.width: 100%
-#| fig.cap: Cost value for the SVM to the left that dictates cost for values outside of margin and insensitivty margin dictates tolerance levels of margin
-#| dev: "png"
-#| dpi: 100
-svml_tune_vis
-```
-```{r figure-X-svml-threshold-metrics}
-#| fig.width: 5
-#| fig.height: 4
-#| fig.align: center
-#| out.width: 70%
-#| fig.cap: Five metrics based on threshold value for the Linear SVM Model. Vertical lines show maximum j-index and sensitivity between 0.01 and 0.04.
-#| dev: "png"
-#| dpi: 100
-svml_tmetrics_plot
-```
-Linear SVM:
-
-```{r}
-svml_train_train_cm
-```
-
-```{r}
-svml_test_cm
 ```
 
 
@@ -1347,37 +1309,6 @@ svmp_test_cm <- conf_mat(svmp_test_preds,
 ```
 
 
-```{r figure-X-svmp-tune}
-#| fig.width: 6
-#| fig.height: 3
-#| fig.align: center
-#| out.width: 100%
-#| fig.cap: Cost value for the SVM to the left that dictates cost for values outside of margin, degree of interaction refers to the degree of the interaction term, insensitivty margin dictates tolerance levels of margin
-#| dev: "png"
-#| dpi: 100
-svmp_tune_vis
-```
-```{r figure-X-svmp-threshold-metrics}
-#| fig.width: 5
-#| fig.height: 4
-#| fig.align: center
-#| out.width: 70%
-#| fig.cap: Five metrics based on threshold value for the Polynomial SVM Model. Vertical lines show maximum j-index and sensitivity between 0.01 and 0.04.
-#| dev: "png"
-#| dpi: 100
-svmp_tmetrics_plot
-```
-Polynomial SVM:
-
-```{r}
-svmp_train_train_cm
-```
-
-```{r}
-svmp_test_cm
-```
-
-
 ```{r}
 ## PART I ##
 # define model spec
@@ -1472,6 +1403,38 @@ svmr_test_cm <- conf_mat(svmr_test_preds,
                         truth = Class,
                         estimate = .pred_class)
 ```
+
+
+
+
+Support vector machines are models which frequently perform well in a wide variety of applications and are worth considering for this analysis. We analyzed support vector machines with three kernel types: linear, polynomial, and radial. Support vector machines have various tuning parameters to consider depending on the kernel chosen. The first parameter that is tuned for all models is cost, which represents a measure of how much leeway is given for observations to be on the incorrect side of the separating hyperplane. A larger C value creates a model with higher bias but lower variance and vice versa. Our next parameter is insensitivity margin, which indicates the value of the epsilon in the loss function. This value effectively determines the width of our area around the hyperplane for values that will be penalized. The polynomial kernel has a degree parameter that signifies the order of the kernel function (i.e. 2nd degree vs 3rd degree polynomial). The sigma in the radial function represents how the decision boundary is drawn. A larger sigma will reduce variance but increase bias and vice versa.
+
+```{r figure-X-svml-tune}
+#| fig.width: 6
+#| fig.height: 3
+#| fig.align: center
+#| out.width: 100%
+#| fig.cap: Cost value for the SVM to the left that dictates cost for values outside of margin and insensitivty margin dictates tolerance levels of margin
+#| dev: "png"
+#| dpi: 100
+svml_tune_vis
+```
+
+Our Linear SVM performed best with a cost of 31.49 and a margin of .14 These parameter values allow for more flexibility, which makes sense as the data set may not fit a perfectly linear decision boundary. Wtih these parameters, the model allows for more misclassifications of values near the decision boundary. Figure 17 shows the results of tuning the linear SVM.
+
+```{r figure-X-svmp-tune}
+#| fig.width: 6
+#| fig.height: 3
+#| fig.align: center
+#| out.width: 100%
+#| fig.cap: Cost value for the SVM to the left that dictates cost for values outside of margin, degree of interaction refers to the degree of the interaction term, insensitivty margin dictates tolerance levels of margin
+#| dev: "png"
+#| dpi: 100
+svmp_tune_vis
+```
+
+The Polynomial SVM highlights the potential deficiencies with the linear model when examining the parameter tuning. The lowest performing is a 1st degree (linear model) followed by a 2nd degree model, and the best model is a 3rd degree polynomial. The optimal cost is .1 and the optimal margin is .003. This model has a much smaller cost and narrower margin relative to the linear model which creates a model with relatively higher variance but lower bias. These parameters also reflect how the data is likely to be non-linear in nature. Figure 18 shows the results of tuning th epolynomial SVM.
+
 ```{r figure-X-svmr-tune}
 #| fig.width: 6
 #| fig.height: 3
@@ -1482,6 +1445,32 @@ svmr_test_cm <- conf_mat(svmr_test_preds,
 #| dpi: 100
 svmr_tune_vis
 ```
+
+The Radial SVM has a cost of 25.52, a margin of .13 and a Sigma of .006. Figure 19 shows the results of tuning the radial SVM. The cost and margin here are more in line with the linear model, though as the figure highlights, these parameters are relatively consistent throughout the range. This allows the radial function to be slightly more biased to the dataset and outperform when it comes to classifications.
+
+
+```{r figure-X-svml-threshold-metrics}
+#| fig.width: 5
+#| fig.height: 4
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Five metrics based on threshold value for the Linear SVM Model. Vertical lines show maximum j-index and sensitivity between 0.01 and 0.04.
+#| dev: "png"
+#| dpi: 100
+svml_tmetrics_plot
+```
+
+```{r figure-X-svmp-threshold-metrics}
+#| fig.width: 5
+#| fig.height: 4
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Five metrics based on threshold value for the Polynomial SVM Model. Vertical lines show maximum j-index and sensitivity between 0.01 and 0.04.
+#| dev: "png"
+#| dpi: 100
+svmp_tmetrics_plot
+```
+
 ```{r figure-X-svmr-threshold-metrics}
 #| fig.align: center
 #| out.width: 70%
@@ -1490,6 +1479,37 @@ svmr_tune_vis
 #| dpi: 100
 svmr_tmetrics_plot
 ```
+
+
+The two chosen threshold metrics to determine threshold are the j-index and sensitivity. Figures 20 through 22 show the thresholds that maximize our chosen metrics. We choose threshold values at 0.06, 0.03, and 0.02 for the linear, polynomial, and radial SVM models respectively. We choose to maximize the j-index.
+
+
+
+Linear SVM:
+
+```{r}
+svml_train_train_cm
+```
+
+```{r}
+svml_test_cm
+```
+
+
+
+
+Polynomial SVM:
+
+```{r}
+svmp_train_train_cm
+```
+
+```{r}
+svmp_test_cm
+```
+
+
+
 Radial SVM:
 
 
