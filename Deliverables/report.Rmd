@@ -1532,26 +1532,26 @@ cv_rocs <- ( log_cv_roc + pen_cv_roc  + knn_cv_roc) /
   ( svml_cv_roc + svmp_cv_roc + svmr_cv_roc)
 
 # precision calculations for threshold metrics
-knnp1 <- 13452/(13452+31424) #KNN
-ldap1 <- 13860/(13860+63633) #LDA
-qdap1 <- 13586/(13586+71822) #QDA
-logp1 <- 14479/(14479+193475) #Log
-penp1 <- 14480/(14480+206144) #Pen
-ensp1 <- 13863/(13863+64505) #Ens
-svmlp1 <-  14478/(14478+204855) #SVML
-svmpp1 <- 14480/(14480+101993) #SVMP
-svmrp1 <- 14480/(14480+170042) #SVMR
+knnp1 <- 1999/(1999+291) #KNN
+ldap1 <- 1791/(1791+1284) #LDA
+qdap1 <- 2017/(2017+1732) #QDA
+logp1 <- 1974/(1974+786) #Log
+penp1 <- 1990/(1990+961) #Pen
+ensp1 <- 2017/(2017+626) #Ens
+svmlp1 <- 1968/(1968+851) #SVML
+svmpp1 <- 2018/(2018+635) #SVMP
+svmrp1 <- 2014/(2014+781) #SVMR
 
 # precision calculations for holdout performance
-knnp2 <- 1999/(1999+291) #KNN
-ldap2 <- 1791/(1791+1284) #LDA
-qdap2 <- 2017/(2017+1732) #QDA
-logp2 <- 1974/(1974+786) #Log
-penp2 <- 1990/(1990+961) #Pen
-ensp2 <- 2017/(2017+626) #Ens
-svmlp2 <- 1968/(1968+851) #SVML
-svmpp2 <- 2018/(2018+635) #SVMP
-svmrp2 <- 2014/(2014+781) #SVMR
+knnp2 <- 13452/(13452+31424) #KNN
+ldap2 <- 13860/(13860+63633) #LDA
+qdap2 <- 13586/(13586+71822) #QDA
+logp2 <- 14479/(14479+193475) #Log
+penp2 <- 14480/(14480+206144) #Pen
+ensp2 <- 13863/(13863+64505) #Ens
+svmlp2 <-  14478/(14478+204855) #SVML
+svmpp2 <- 14480/(14480+101993) #SVMP
+svmrp2 <- 14480/(14480+170042) #SVMR
 
 # We ran into an issue where our metrics were being calculated based on
 # Non-Tarp as our target class. For this reason the sensitivity and specificity metrics were switched, and
