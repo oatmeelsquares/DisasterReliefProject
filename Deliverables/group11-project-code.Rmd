@@ -1,0 +1,1375 @@
+---
+title: 'Disaster Relief Project, Part 1'
+author: "Becky Desrosiers, Abner Casillas-Colon, Rachel Daniel"
+date: "2024-03-16"
+output: pdf_document
+---
+
+```{r r-setup, include = FALSE, cache = FALSE}
+knitr::opts_chunk$set(cache = TRUE,
+                      autodep = TRUE,
+                      message = FALSE,
+                      warning = FALSE,
+                      echo = FALSE
+                      )
+library(tidyverse)
+library(tidymodels)
+library(ggcorrplot)
+library(GGally)
+library(discrim)
+library(patchwork)
+library(doParallel)
+cl <- makePSOCKcluster(parallel::detectCores(logical = FALSE))
+registerDoParallel(cl)
+```
+
+
+# Introduction
+
+The 2010 earthquake in Haiti was a devastating natural disaster that caused extreme damage and displaced millions of people. After this disaster, the rescue workers needed to deliver food, water, and other resources to the people of Haiti, but it was challenging locating the people in need over this large area. These challenges included roads blocked by rubble and the inability to communicate because of damage to communication infrastructure. The rescue workers needed to find another strategy other than physically looking for them on land to locate and reach these displaced persons quickly and more efficiently. 
+
+The people of Haiti who were displaced by the earthquake were using blue tarps as temporary shelter. This knowledge was utilized to locate these people after imagery was collected by aircraft flown by a rescue team from the Rochester Institute of Technology. Blue tarps could be searched for within these images by the rescue team who would then go to these coordinates and find them. However, that strategy would have been too slow, and resources would not have been delivered in time. A different strategy that could be used to more efficiently locate people in need of resources was to continue to use these images but instead use data-mining algorithms to search these images. 
+
+This report explores various classification methods that could be useful in locating these blue tarps within the images taken by aircraft. The algorithms tested and explored include those that utilize Logistic Regression with and without penalty, Linear Discriminant Analysis, Quadratic Discriminant Analysis, and K-Nearest Neighbors. We expect at least one of these methods to work more efficiently and more accurately than human efforts as these algorithms can handle more data, perform complex operations, and potentially fit to the patterns of the data to identify the blue tarps. The chosen algorithm will likely to miss fewer blue tarps than a human would. It is critical to identify that algorithm that will perform the best so that aid can be delivered to displaced people in dire circumstances. This is an important data-mining problem that could have a large impact on human life. This report will identify the algorithm that most accurately and most efficiently identifies these blue tarps so that the displaced Haitians can receive desperately needed resources in time. 
+
+
+# Data
+
+```{r load-data, include = FALSE}
+# load data from file
+file = "https://gedeck.github.io/DS-6030/project/HaitiPixels.csv"
+#file = '../data.csv'
+data <- read_csv(file) #%>% 
+  #mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
+```
+
+The dataset that will be used consists of class as a response variable and red, blue, green pixels as the predictor variables. There are a total of 63,241 records with no missing values. Pixels can have a range of 0-255 but for this dataset all pixels have a max of 255. Red and green pixels share a minimum value of 48 and blue has a minimum of 44. For Class there are five distinct values: Blue Tarp, Rooftop, Soil, Various Non-Tarp, and Vegetation.
+
+The box plots below showcase the distribution of the range of pixel values grouped by each of the categories of images observed. For our analysis, one thing we would like to note is the potential groups that could overlap with our goal value of blue tarps. The range of pixel values for each color lie within the following approximate ranges for the blue tarp class: 150-200 for the red pixels, 160-250 for the green pixels, and 175-250 for the blue pixels. The blue pixels have the largest average values, which indicates a higher saturation of the color blue (the color of our tarps). 
+
+When viewing the boxplots, there appears to be some overlap of red and green pixel values for the rooftop class and the various non-tarp class with the blue tarp class. The blue pixel values do not overlap as much across classes as the blue tarps have the highest saturation of blue pixels. As we work to identify the best model to identify blue tarps, we will keep in mind that there is some overlap of red and green pixel values of the various non-tarp class and the rooftop class with the blue tarp class. This overlap may potentially make up a portion of the false positives in our final model so we will try to minimize false positives as much as possible while also minimizing false negatives. 
+
+```{r EDA_Boxplots}
+#| fig.width: 6
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Box plots of the pixel values broken out by each colour and class.
+#| dev: "png"
+#| dpi: 100
+g1_box <- ggplot(data, aes(x=Class, y=Red))+
+  geom_boxplot()+
+  labs(title= "Boxplots of Red Pixel Value by Class")
+
+g2_box <- ggplot(data, aes(x=Class, y=Green))+
+  geom_boxplot()+
+  labs(title= "Boxplots of Green Pixel Value by Class")
+
+g3_box <- ggplot(data, aes(x=Class, y=Blue))+
+  geom_boxplot()+
+  labs(title= "Boxplots of Blue Pixel Value by Class")
+
+g1_box/g2_box/g3_box
+
+```
+
+
+The count plot below displays the total counts grouped by class. Blue tarp has the smallest amount of values at 2022. While this is important to note for the threshold selection later on in the model, it is promising that the two largest values by far are vegetation and soil as they are the two who are least likely to represent false positive or false negative values when predicting for tarps. Rooftops and Various Non-Tarps however, do account for 14,647 pixels which do have closer overlaps with the green and blue pixel values for blue tarps. Again, we will need to look out for these potential false positives when assessing our models.
+
+```{r EDA_Countplot_Class_ungrouped }
+#| fig.width: 6
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Count plot of total counts broken out by each class
+#| dev: "png"
+#| dpi: 100
+ggplot(data, aes(Class))+
+  geom_bar()+
+  labs(title= "Count Plot of Class", x="Count")
+```
+
+While it is important to assess red, green, and blue pixel values for each class, our main priority is to identify Blue tarps. Since we are targeting a particular class, we are able to transition into a binary problem where we classify the data as follows: Tarps for our target class and Non-Tarp for all other classes.  
+
+The bar chart and table 1 below highlight the values of Blue-tarps versus Non-Tarps. In this instance, we note that the proportion of tarp pixels in the total dataset is 3%. When we conduct our threshold selection across all models, this will be important as the models will default to a 50-50 threshold.
+
+
+```{r}
+#| fig.width: 6
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Count plot of Classes: Blue-Tarp and Non-Tarp
+#| dev: "png"
+#| dpi: 100
+data <- data %>% 
+  mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
+ggplot(data, aes(Class))+
+  geom_bar()+
+  labs(title= "Count Plot of Classes", x="Count")
+```
+
+
+```{r EDA_Count_Table_1}
+table(data$Class) %>% knitr::kable(caption = "Count of Class")
+```
+
+In the box plots below, we can again see the overlap of the red and green pixel values of the non-tarp class with the tarp class. Fortunately, there is not as much overlap of the blue pixel values between the tarp class and the non-tarp class. Our best model may potentially focus the blue pixel predictor more so than the others due to it greater uniqueness.
+
+
+```{r EDA_boxplot-binary}
+#| fig.width: 20
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Box plots of the pixel values broken out by each color and class.
+#| dev: "png"
+#| dpi: 200
+bluedata <- data[data$Class == 'Tarp', ]
+otherdata <- data[data$Class == 'Non-Tarp',]
+g1_tarpden <- ggplot(bluedata,aes(x=Red))+
+  geom_boxplot()+
+  labs(title= "Box plot of Red Pixel Value of Blue-tarps")
+g1_nontarpden <- ggplot(otherdata,aes(x=Red))+
+  geom_boxplot()+
+  labs(title= "Box plot of Red Pixel Value of Non-tarps")
+g2_tarpden <- ggplot(bluedata,aes(x=Green))+
+  geom_boxplot()+
+  labs(title= "Box plot of Green Pixel Value of Blue-tarps")
+g2_nontarpden <- ggplot(otherdata,aes(x=Green))+
+  geom_boxplot()+
+  labs(title= "Box plot of Green Pixel Value of Non-tarps")
+g3_tarpden <- ggplot(bluedata,aes(x=Blue))+
+  geom_boxplot()+
+  labs(title= "Box plot of Blue Pixel Value of Blue-tarps")
+g3_nontarpden <- ggplot(otherdata,aes(x=Blue))+
+  geom_boxplot()+
+  labs(title= "Box plot of Blue Pixel Value of Non-tarps")
+
+(g1_tarpden+g1_nontarpden)/(g2_tarpden+g2_nontarpden)/(g3_tarpden+g3_nontarpden)
+```
+
+```{r holdout processing EDA}
+
+columns = c('ID', 'X','Y','Map X','Map Y','Lat','Lon','B1','B2','B3')
+
+data_67_BT <- read_table("orthovnir067_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Tarp"))
+
+data_57_NON <- read_table("orthovnir057_ROI_NON_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
+
+data_67_NOT <- read_table("orthovnir067_ROI_NOT_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
+
+data_69_NOT <- read_table("orthovnir069_ROI_NOT_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
+
+data_69_bt <- read_table("orthovnir069_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Tarp"))
+
+data_78_bt <- read_table("orthovnir078_ROI_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Tarp"))
+
+data_78_NON <- read_table("orthovnir078_ROI_NON_Blue_Tarps.txt", skip = 8, col_names = columns) %>%
+  select(-ID) %>% mutate(Class = as.factor("Non-Tarp"))
+  
+```
+
+```{r holdout EDA}
+data_full <- bind_rows(
+  data_67_BT,
+  data_57_NON,
+  data_67_NOT,
+  data_69_NOT,
+  data_69_bt,
+  data_78_bt,
+  data_78_NON)
+```
+
+
+It can be helpful in our EDA to take a look at the holdout set to see how it compares to our training set. Here, we take a look a bar chart of the holdout data below, the difference in the count between the tarps and non-tarps is even more extreme, where the blue-tarps pixels only make up about 0.7% of the data. 
+
+```{r EDA_boxplot_binaryfull}
+#| fig.width: 6
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Count plot of Classes: Blue-Tarp and Non-Tarp
+#| dev: "png"
+#| dpi: 100
+ggplot(data_full, aes(Class), fill = Class)+
+  geom_bar()+
+  labs(title= "Count Plot of Classes for Holdout Set", x="Count")
+```
+
+
+```{r}
+table(data_full$Class) %>% knitr::kable(caption = "Count of Class for holdout set")
+```
+
+In the box plots below of the blue-tarps versus the non-tarps, we can see that the distributions of the pixel values are slightly different between the training data and the hold out set. In assessing our final models, we need to make sure that we try to avoid models that overfit the training data as they may not perform as well on the test data.
+
+```{r density full data}
+#| fig.width: 20
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Box plots of the pixel values broken out by each color and class for the hold-out set.
+#| dev: "png"
+#| dpi: 200
+bluedata_full <- data_full[data_full$Class == 'Tarp', ]
+otherdata_full<- data_full[data_full$Class == 'Non-Tarp',]
+g1_tarpden_full <- ggplot(bluedata_full,aes(x=B1))+
+  geom_boxplot()+
+  labs(title= "Box plot of Red Pixel Value of Blue-tarps")
+g1_nontarpden_full <- ggplot(otherdata_full,aes(x=B1))+
+  geom_boxplot()+
+  labs(title= "Box plot of Red Pixel Value of Non-tarps")
+g2_tarpden_full <- ggplot(bluedata_full,aes(x=B2))+
+  geom_boxplot()+
+  labs(title= "Box plot of Green Pixel Value of Blue-tarps")
+g2_nontarpden_full <- ggplot(otherdata_full,aes(x=B2))+
+  geom_boxplot()+
+  labs(title= "Box plot of Green Pixel Value of Non-tarps")
+g3_tarpden_full <- ggplot(bluedata_full,aes(x=B3))+
+  geom_boxplot()+
+  labs(title= "Box plot of Blue Pixel Value of Blue-tarps")
+g3_nontarpden_full <- ggplot(otherdata_full,aes(x=B3))+
+  geom_boxplot()+
+  labs(title= "Box plot of Blue Pixel Value of Non-tarps")
+
+(g1_tarpden_full+g1_nontarpden_full)/(g2_tarpden_full+g2_nontarpden_full)/(g3_tarpden_full+g3_nontarpden_full)
+```
+
+```{r}
+#| fig.width: 20
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Box plots of the pixel values broken out by each color and class for the training data.
+#| dev: "png"
+#| dpi: 200
+(g1_tarpden+g1_nontarpden)/(g2_tarpden+g2_nontarpden)/(g3_tarpden+g3_nontarpden)
+```
+
+
+# Description of Methodology
+
+This model is created using RStudio with the following packages: tidyverse, tidymodels, ggcorrplot, GGally, patchwork, discrim and doParallel. RStudio is an open-source statistical analysis software that offers a variety of packages to assist in model building and model selection. The first step of this analysis is to change the classifier into our variable of interest. The raw data classifies the pixels into Blue Tarp, Rooftop, Soil, Various Non-Tarp, and Vegetation, however we are only interested in whether the pixel is a Blue Tarp or not a Blue Tarp. We changed the factor outcome variable to have only two levels: Tarp and Non-Tarp. As the goal of this model will be to predict the class of a combination of pixels the following classification models will be explored: Logistic Regression, Penalized Logistic Regression (a logistic regression model with tuning parameters for an elastic net), linear discriminant analysis (LDA), quadtratic discriminant analysis (QDA), and a K-Nearest-Neighbors (KNN) model.
+
+Of these models, the KNN model and the Logistic Regression Model will utilize tuning parameters. Tuning parameters will be selected to maximize ROC AUC. For the KNN model, the selected tuning parameter is the number of neighbors, k. The number of neighbors selected will be the lowest k within one standard deviation of the maximum ROC AUC. For the penalized model, mixture and penalty will be tuned, and the best model will be selected based on ROC AUC.
+
+For all models a tenfold cross-validation will be used for model validation. All metrics will be estimated using tenfold cross-validation. With an overall sample size of 63,241, this allows for each fold to have 6,324 records. With this amount of data, a tenfold cross validation is a reliable method to evaluate the performance of the training sets for all models. We set the seed for all random processes to 6030.
+
+All models will be compared based on ROC AUC. This metric provides a method to evaluate the performance of the True Positive Rate and False Positive Rate across all possible thresholds from 0 to 1. With its efficacy as an overall evaluator of performance, this metric will be used for model selection when comparing all versions of the tenfold validation models. 
+
+As established during the EDA, the proportion of Blue Tarps to all other classes is approximately 3%. This indicates that a 50% threshold would be a poor choice for the final model. While five metrics will be explored for threshold selection (accuracy, j-index, sensitivity, specificity, and precision) our primary metrics of interest will be sensitivity and j-index. Sensitivity is especially important because we want to minimize false negatives - those could represent individuals that could be missed when response time is extremely important. The j-index is chosen as a metric that balances sensitivity and specificity. This will be valuable in models were responders have limited resources to check potential points of interest. While maximizing based on j-index will result in a higher false negative rate, we will greatly reduce false positives, which will make sure that we can make the most out of the time and resources allocated to the relief effort. In this report, we will assume that we have relatively unlimited resources and therefore pick thresholds based rimarily on sensitivity. J-index will be our secondary metric for selecting threshold. These same metrics will be used and weighted similarly when determining model performance, for similar reasons.
+
+
+
+# Results of Model Fitting, Tuning Parameter Selection, and Evaluation
+
+```{r convenience-functions}
+# define functions to use later for convenience
+cv_control <- control_resamples(save_pred = TRUE)
+
+roc_plot <- function(model_preds, model_name) {
+  roc <- model_preds %>% 
+    roc_curve(truth = Class,
+              .pred_Tarp,
+              event_level = 'second') %>% 
+    autoplot()
+    zoom <- roc + coord_cartesian(xlim = c(0, 0.1), ylim = c(0.9, 1)) +
+    theme(axis.title.x=element_blank(), #remove x axis labels
+          axis.text.x = element_blank(),
+          axis.title.y=element_blank()  #remove y axis labels
+          )
+  roc +
+    labs(title = paste(model_name)) +
+    inset_element(zoom, left = 0.4, right = 0.95, bottom = 0.05, top = 0.6)
+}
+
+
+threshold_metric_plot <- function(thresh_perf, max_sens, max_j) {
+  ggplot(thresh_perf, aes(x = .threshold, y = .estimate, color = .metric)) +
+    geom_line() +
+    geom_vline(data = max_sens, aes(xintercept = .threshold, color = .metric)) +
+    geom_vline(data = max_j, aes(xintercept = .threshold, color = .metric)) +
+    scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+    labs(x = 'Threshold', y = 'Metric value')
+}
+
+threshold_metrics <- metric_set(j_index,
+                                sensitivity,
+                                specificity,
+                                accuracy,
+                                precision)
+
+test_metrics <- function(model_test_preds) {
+  bind_rows(
+    roc_auc(model_test_preds,
+            truth = Class,
+            .pred_Tarp,
+            event_level = 'second'),
+    threshold_metrics(model_test_preds,
+                      truth = Class,
+                      estimate = .pred_class,
+                      )
+  )
+}
+
+
+threshold_preds <- function(preds, threshold) {
+    preds <- preds %>% 
+    mutate(.pred_class = factor(ifelse(.pred_Tarp >= threshold, 'Tarp', 'Non-Tarp')))
+}
+
+```
+
+
+```{r model-setup}
+# prepare resamples for 10-fold cross-validation
+set.seed(6030)
+resamples <- vfold_cv(data, v = 10, strata=Class)
+
+# define formula
+formula <- Class ~ Red + Green + Blue
+
+# define basic recipe
+rec <- recipe(formula, data = data)
+```
+
+
+## K-Nearest Neighbors
+
+
+```{r knn}
+## PART I ##
+# define model spec
+knn_spec <- nearest_neighbor(mode = 'classification',
+                            engine = 'kknn',
+                            neighbors = parsnip::tune())
+
+# define workflow
+knn_wf <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(knn_spec)
+
+# set tuning parameters
+knn_params <- extract_parameter_set_dials(knn_wf) %>% 
+  update(neighbors = neighbors(c(2, 100)))
+
+# tune with grid (or fit resamples)
+knn_tune <- tune_grid(knn_wf,
+                      resamples = resamples,
+                      grid = grid_regular(knn_params, levels = 50),
+                      control = cv_control
+                      )
+
+# get tuning results visualization
+knn_tune_vis <- autoplot(knn_tune, metric = 'roc_auc')
+
+# finalize workflow and fit resamples with best parameters
+knn_best_params <- select_best(knn_tune, metric = 'roc_auc')
+
+knn_final <- knn_wf %>% 
+  finalize_workflow(knn_best_params)
+
+knn_fitcv <- fit_resamples(knn_final,
+                           resamples,
+                           control = cv_control
+                           )
+
+# collect predictions and roc_auc from cross-validated fit
+knn_cv_preds <-  collect_predictions(knn_fitcv)
+knn_cv_metrics <- collect_metrics(knn_fitcv)
+
+# get ROC plot for cross-validation
+knn_cv_roc <- roc_plot(knn_cv_preds, 'KNN')
+
+# get threshold selection info
+knn_thresh_perf <- probably::threshold_perf(knn_cv_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = threshold_metrics)
+
+# get threshold for best sensitivity
+knn_max_sens <- knn_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+knn_max_j <- knn_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+knn_tmetrics_plot <- threshold_metric_plot(knn_thresh_perf, knn_max_sens, knn_max_j)
+
+# get best threshold
+knn_threshold <- as.numeric(knn_max_j[1, 1])
+
+# get predictions and metrics based on chosen threshold
+knn_threshold_preds <- threshold_preds(knn_cv_preds, knn_threshold)
+
+knn_threshold_metrics <- threshold_metrics(knn_threshold_preds,
+                                           truth = Class,
+                                           estimate = .pred_class)
+
+# get confusion matrix for chosen threshold
+knn_train_cm <- conf_mat(knn_threshold_preds,
+                               truth = Class,
+                               estimate = .pred_class)
+
+## PART II ##
+# fit final workflow to training data
+knn_fit <- fit(knn_final, data)
+
+# get predictions and metrics for holdout data
+knn_test_preds <- threshold_preds(augment(knn_fit, new_data = holdout),
+                                  knn_threshold)
+knn_test_roc <- roc_plot(knn_test_preds, 'KNN')
+
+knn_test_metrics <- test_metrics(knn_test_preds)
+
+knn_test_cm <- conf_mat(knn_test_preds,
+                        truth = Class,
+                        estimate = .pred_class)
+```
+
+
+We now build a K-nearest neighbors (KNN) model with the number of neighbors, k, tuned to find the best fit. Figure 3 shows the ROC AUC of the model when fitted with different numbers of neighbors. It shows that the AUC of the ROC curve increases with k, maxing before 50, and leveling out at higher tuning values. The highest AUC is **0.9943** and belongs to the model with k = 40 neighbors, so we use this tuning metric moving forward.
+
+
+
+```{r figure-X-knn-tune}
+#| fig.width: 6
+#| fig.height: 5
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: ROC AUC based on number of principal components and nearest neighbors.
+#| dev: "png"
+#| dpi: 100
+knn_tune_vis
+```
+
+With the number of neighbors tuned to k = 40, our model has an ROC AUC of **0.9933**. The ROC curve will be displayed in the next section, when all of the models are compared. The next step is to select the appropriate threshold for our model. Figure 4 shows five different metrics plotted against the threshold value, with thresholds ranging from 0.01 to 0.99. The metrics were calculated using tenfold cross-validation. The vertical lines show that sensitivity is maximized anywhere between 0.01 and 0.09, and j-index is maximized at 0.09. Therefore, we will use threshold = 0.09 in order to maximize both the sensitivity and j-index.
+
+```{r figure-X-knn-threshold-metrics}
+#| fig.width: 5
+#| fig.height: 4
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Five metrics based on threshold value for the KNN model with k = 40 nearest neighbors. Vertical lines show maximum sensitivity between 0.01 and 0.09, and maximum j-index at 0.09.
+#| dev: "png"
+#| dpi: 100
+knn_tmetrics_plot
+```
+
+Our final model has k = 40 nearest neighbors and a selection threshold of 0.09. The corresponding confusion matrix is shown below.
+
+```{r knn-conf-mat}
+knn_train_cm
+```
+
+The confusion matrix shows that our final model misses only 23 Blue Tarp pixels in the training set and falsely identifies 291 Non-Tarp pixels.
+
+On the holdout set, the KNN model with 40 neighbors produces a ROC AUC of 0.9643 and the chosen threshold classifies the data as shown in the confusion matrix below:
+
+```{r}
+knn_test_cm
+```
+
+The KNN model performs a little worse on the testing data, which is to be expected. The true positive (sensitivity) rate dropped from 0.9952 to 0.9842 and the j-index dropped from 0.9839 to 0.9132. In a vacuum, it does not seem like a significant change, but there is a possibility of some overfitting here. In the next section, we will compare the models to judge the amount of overfitting.
+
+
+## Linear Discriminant Analysis
+
+```{r lda}
+# define model spec
+lda_spec <- discrim_linear(mode = "classification") %>% 
+  set_engine('MASS')
+
+# define workflow
+lda_final <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(lda_spec)
+
+# fit resamples
+lda_fitcv <- fit_resamples(lda_final, resamples,  control=cv_control)
+
+# collect predictions and roc_auc from cross-validated fit
+lda_cv_preds <-  collect_predictions(lda_fitcv)
+lda_cv_metrics <- collect_metrics(lda_fitcv)
+
+lda_cv_roc <- roc_plot(lda_cv_preds, 'LDA')
+
+# get threshold selection info
+lda_thresh_perf <- probably::threshold_perf(lda_cv_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = threshold_metrics)
+
+# get threshold for best sensitivity
+lda_max_sens <- lda_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+lda_max_j <- lda_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+lda_tmetrics_plot <- threshold_metric_plot(lda_thresh_perf, lda_max_sens, lda_max_j)
+
+# get best threshold
+lda_threshold <- as.numeric(lda_max_sens[1, 1])
+
+# get predictions and metrics based on chosen threshold
+lda_threshold_preds <- lda_cv_preds %>% 
+ mutate(.pred_class = factor(ifelse(.pred_Tarp >= lda_threshold, 'Tarp', 'Non-Tarp')))
+
+lda_threshold_metrics <- threshold_metrics(lda_threshold_preds, truth = Class, estimate = .pred_class)
+
+
+# get confusion matrix for chosen threshold
+lda_train_cm <- conf_mat(lda_threshold_preds, truth = Class, estimate = .pred_class)
+
+## PART II ##
+# fit final workflow to training data
+lda_fit <- fit(lda_final, data)
+
+# get predictions and metrics for holdout data
+lda_test_preds <- threshold_preds(augment(lda_fit, new_data = holdout),
+                                  lda_threshold)
+lda_test_roc <- roc_plot(lda_test_preds, 'LDA')
+
+lda_test_metrics <- test_metrics(lda_test_preds)
+
+lda_test_cm <- conf_mat(lda_test_preds,
+                        truth = Class,
+                        estimate = .pred_class)
+```
+
+The second model under consideration is linear discriminant analysis (LDA). We found that the LDA model has a ROC AUC of 0.9888, which means that it performs well on the data and classifies blue tarp pixels versus non-tarp pixels much better than a random model. The ROC curve corresponding to the LDA model will be displayed with the other curves in the next section. To choose an appropriate threshold, we reference Figure 5, which displays the threshold plot with the plotted values of the chosen metrics from 0.01 to 0.99.
+
+
+```{r figure-X-lda-threshold-metrics}
+#| fig.width: 5
+#| fig.height: 4
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Four metrics based on threshold value for the LDA model. Vertical lines show maximum j-index and sensitivity at 0.01.
+#| dev: "png"
+#| dpi: 100
+lda_tmetrics_plot
+```
+ 
+
+A threshold of 0.01 maximizes both sensitivity and j-index, so we will use this threshold moving forward. After threshold selection, the confusion matrix for the model was assessed to find the number of false negatives, false positives, and true positives. We found that the LDA model at the chosen threshold misses 231 blue tarps and falsely identifies 1284 blue tarps, while correctly identifying 1791 of the 2022 total tarp pixels in the dataset.
+
+```{r lda-cm}
+lda_train_cm
+```
+
+ 
+The LDA model performs with a high level of accuracy (0.9760) and precision (0.9962), however, due to the rare nature of the blue tarps, a model classifying all pixels as Non-Tarp would have accuracy and precision of 0.9680. As the confusion matrix shows, the LDA model misclassifies a significant number of blue tarps. Sensitivity and specificity are 0.9790 and 0.8858, respectively, and the j-index is 0.8648.
+
+On the holdout set, the LDA model produces a ROC AUC of 0.9921 and the chosen threshold classifies the data as shown in the confusion matrix below.
+
+```{r}
+lda_test_cm
+```
+
+From the confusion matrix, we can calculate a sensitivity of 0.9680 and j-index 0.9252, which is actually higher than the j-index for the training set. The other metrics decreased marginally, however, which is expected for a test set. The amount of decrease in metrics does not appear significant enough to indicate problematic overfitting.
+
+
+## Quadratic Discriminant Analysis
+
+```{r qda}
+# define model spec
+qda_spec <- discrim_quad(mode = "classification") %>% 
+  set_engine('MASS')
+
+# define workflow
+qda_final <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(qda_spec)
+
+
+# fit resamples
+qda_fitcv <- fit_resamples(qda_final, resamples,  control=cv_control)
+
+# collect predictions and roc_auc from cross-validated fit
+qda_cv_preds <-  collect_predictions(qda_fitcv)
+qda_cv_metrics <- collect_metrics(qda_fitcv)
+
+# get ROC plot for cross-validation
+qda_cv_roc <- roc_plot(qda_cv_preds, 'QDA')
+
+# get threshold selection info
+qda_thresh_perf <- probably::threshold_perf(qda_cv_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = threshold_metrics)
+
+# get threshold for best sensitivity
+qda_max_sens <- qda_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+qda_max_j <- qda_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+qda_tmetrics_plot <- threshold_metric_plot(qda_thresh_perf, qda_max_sens, qda_max_j)
+
+# get best threshold
+qda_threshold <- as.numeric( (qda_max_sens[1, 1] + qda_max_j[1, 1]) / 2 )
+
+# get predictions and metrics based on chosen threshold
+qda_threshold_preds <- qda_cv_preds %>% 
+ mutate(.pred_class = factor(ifelse(.pred_Tarp >= qda_threshold, 'Tarp', 'Non-Tarp')))
+
+qda_threshold_metrics <- threshold_metrics(qda_threshold_preds, truth = Class, estimate = .pred_class)
+
+
+# get confusion matrix for chosen threshold
+qda_train_cm <- conf_mat(qda_threshold_preds, truth = Class, estimate = .pred_class)
+
+## PART II ##
+# fit final workflow to training data
+qda_fit <- fit(qda_final, data)
+
+# get predictions and metrics for holdout data
+qda_test_preds <- threshold_preds(augment(qda_fit, new_data = holdout),
+                                  qda_threshold)
+qda_test_roc <- roc_plot(qda_test_preds, 'QDA')
+
+qda_test_metrics <- test_metrics(qda_test_preds)
+
+qda_test_cm <- conf_mat(qda_test_preds,
+                        truth = Class,
+                        estimate = .pred_class)
+```
+
+
+The next model to be considered is based on quadratic discriminant analysis (QDA). We found that the model's AUC was 0.9982, which means it performs a lot better than a random model. The next step was selecting the best threshold based on sensitivity and j_index. We found that the maximum sensitivity is at a threshold of 0.01, while the maximum j-index was at 0.02. These metrics at each threshold value are shown within the threshold plot in Figure 6.
+
+
+```{r figure-X-qda-threshold-metrics}
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Four metrics based on threshold value for the QDA model. Vertical lines show maximum j-index and sensitivity at 0.02 and 0.01, respectively.
+#| dev: "png"
+#| dpi: 100
+qda_tmetrics_plot
+```
+ 
+
+Since sensitivity and j-index are both important for this data, we choose a threshold in between 0.01 and 0.02 for this model, and we will use threshold = 0.015 going forward. This threshold value seeks to maximize both metrics, resulting in a j-index of 0.9692 and sensitivity of 0.9717. The confusion matrix below represents the QDA model's performance on the training dataset.
+
+```{r qda-cm}
+qda_train_cm
+```
+
+The model performs very well at the selected threshold in terms of locating tarp pixels, missing only five (5). However, it also misclassifies a large number (1732) of non-tarp pixels. When choosing a final model, it will be important to keep in mind the practicality of the model. 
+
+The QDA model appears to perform better than the LDA model in terms of sensitivity and j-index, so it seems that the data benefits from some flexibility in the predictive algorithm. The risk of more flexibility, however, is overfitting. We now check the confusion matrix for the holdout data.
+
+```{r}
+qda_test_cm
+```
+We can see that the QDA model performs worse on the testing data: the accuracy dropped from 0.9725 to 0.9637 and the true positive rate dropped from0.9717 to 0.9639. It's possible that the flexibility of the method led to overfitting, however we will compare the change inmetrics between the models in the next section to get a better idea of how significant the change is.
+
+
+## Logistic Regression Analysis and Penalized Logistic Regression Analysis
+
+```{r logistic_regression}
+log_spec <- logistic_reg(mode = 'classification',
+                            engine = 'glm')
+                            
+# define workflow
+log_final <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(log_spec)
+
+
+# fit resamples
+log_fitcv <- fit_resamples(log_final, resamples, control=cv_control)
+
+# collect predictions and roc_auc from cross-validated fit
+log_cv_preds <- collect_predictions(log_fitcv)
+log_cv_metrics <- collect_metrics(log_fitcv)
+
+# get ROC plot for cross-validation
+log_cv_roc <- roc_plot(log_cv_preds, 'Logistic Regression')
+
+# get threshold selection info
+log_thresh_perf <- probably::threshold_perf(log_cv_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = threshold_metrics)
+
+# get threshold for best sensitivity
+log_max_sens <- log_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+log_max_j <- log_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+log_tmetrics_plot <- threshold_metric_plot(log_thresh_perf, log_max_sens, log_max_j)
+
+# get best threshold
+log_threshold <- as.numeric(log_max_j[1, 1])
+
+# get predictions and metrics based on chosen threshold
+log_threshold_preds <- log_cv_preds %>% 
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= log_threshold, 'Tarp', 'Non-Tarp')))
+
+log_threshold_metrics <- threshold_metrics(log_threshold_preds,
+                                           truth = Class,
+                                           estimate = .pred_class)
+
+# get confusion matrix for chosen threshold
+log_train_cm <- conf_mat(log_threshold_preds, truth = Class, estimate = .pred_class)
+
+## PART II ##
+# fit final workflow to training data
+log_fit <- fit(log_final, data)
+
+# get predictions and metrics for holdout data
+log_test_preds <- threshold_preds(augment(log_fit, new_data = holdout),
+                                  log_threshold)
+log_test_roc <- roc_plot(log_test_preds, 'Logistic Regression')
+
+log_test_metrics <- test_metrics(log_test_preds)
+
+log_test_cm <- conf_mat(log_test_preds,
+                        truth = Class,
+                        estimate = .pred_class)
+```
+
+
+```{r penalized_logistic}
+# define model spec
+pen_spec <- logistic_reg(mode = 'classification',
+                            engine = 'glmnet',
+                            penalty = tune(),
+                            mixture = tune())
+                            
+# define workflow
+pen_wf <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(pen_spec)
+
+# set tuning parameters
+pen_params <- extract_parameter_set_dials(pen_wf) %>% 
+  update(
+    penalty=penalty(c(-20,-1)),
+    mixture=mixture(c(0,1))
+  )
+
+# tune with grid (or fit resamples)
+pen_tune <- tune_grid(pen_wf,
+                      resamples=resamples,
+                      control=cv_control,
+                      grid=grid_latin_hypercube(pen_params, size=50))
+
+# get tuning results visualization
+pen_tune_vis <- autoplot(pen_tune, metric = "roc_auc")
+
+# finalize workflow and fit resamples with best parameters
+pen_best_params <- select_best(pen_tune, metric="roc_auc")
+
+pen_final <- finalize_workflow(pen_wf, pen_best_params) 
+
+pen_fitcv <- fit_resamples(pen_final,
+                           resamples,
+                           control = cv_control
+                           )
+
+# collect predictions and roc_auc from cross-validated fit
+pen_cv_preds <-  collect_predictions(pen_fitcv)
+pen_cv_metrics <- collect_metrics(pen_fitcv)
+
+# get ROC plot for cross-validation
+pen_cv_roc <- roc_plot(pen_cv_preds, 'Penalized LR')
+
+# get threshold selection info
+pen_thresh_perf <- probably::threshold_perf(pen_cv_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = threshold_metrics)
+
+# get threshold for best sensitivity
+pen_max_sens <- pen_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+pen_max_j <- pen_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+pen_tmetrics_plot <- threshold_metric_plot(pen_thresh_perf, pen_max_sens, pen_max_j)
+
+# get best threshold
+pen_threshold <- as.numeric(pen_max_j[1, 1])
+
+# get predictions and metrics based on chosen threshold
+pen_threshold_preds <- pen_cv_preds %>% 
+  mutate(.pred_class = factor(ifelse(.pred_Tarp >= pen_threshold, 'Tarp', 'Non-Tarp')))
+
+pen_threshold_metrics <- threshold_metrics(pen_threshold_preds,
+                                           truth = Class,
+                                           estimate = .pred_class)
+
+# get confusion matrix for chosen threshold
+pen_train_cm <- conf_mat(pen_threshold_preds, truth = Class, estimate = .pred_class)
+
+## PART II ##
+# fit final workflow to training data
+pen_fit <- fit(pen_final, data)
+
+# get predictions and metrics for holdout data
+pen_test_preds <- threshold_preds(augment(pen_fit, new_data = holdout),
+                                  pen_threshold)
+pen_test_roc <- roc_plot(pen_test_preds, 'Penalized Log. Regression')
+
+pen_test_metrics <- test_metrics(pen_test_preds)
+
+pen_test_cm <- conf_mat(pen_test_preds,
+                        truth = Class,
+                        estimate = .pred_class)
+```
+
+We investigated two types of logistic regressions: with and without penalty. The standard logistic regression model does not have any parameters to tune, and the penalized model applies a penalty value on predictor variables to attempt to shrink less important features. The two tuning parameters of interest are mixture and penalty. Mixture is a metric that will determine if the model is closer to a ridge regression or lasso regression and penalty measures how strongly the predictor variables are penalized, resulting in more shrinkage.
+
+
+```{r figure-X-pen-tune}
+#| fig.width: 6
+#| fig.height: 3
+#| fig.align: center
+#| out.width: 100%
+#| fig.cap: ROC based on penalty and mixture values. Left hand chart corresponds to penalty value, right hand chart corresponds to mixture.
+#| dev: "png"
+#| dpi: 100
+pen_tune_vis
+```
+
+For this model the parameters were tuned to mixture = 0.208 and penalty = 1.279e-10. From examining Figure 7, we can see that larger penalty values incur worse performance after about 10e-5. The relatively low mixture value causes the model to be closer to ridge regression, which does not reduce the coefficients of any predictors to zero like lasso. The optimal parameter values reflect how important all predictor variables are for identifying the class of the observation in the model, and that reducing all values proportionally does not benefit the model to a large degree. The ROC AUC value for the tuned model is 0.9986, while the untuned model has a ROC AUC of 0.9985. Because the difference between the models is very small based on penalty and AUC, a practical approach  may choose the standard logistic regression for its simplicity. However, if our purposes do not include interperateability, we may choose the penalized model if it shows even a slight advantage in predictive capability.
+
+
+
+```{r figure-X-log-threshold-metrics}
+#| fig.width: 5
+#| fig.height: 4
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Five metrics based on threshold value for the Logistic Regression model. Vertical lines show maximum j-index and sensitivity between 0.01 and 0.05.
+#| dev: "png"
+#| dpi: 100
+log_tmetrics_plot
+```
+
+
+```{r figure-X-pen-threshold-metrics}
+#| fig.width: 5
+#| fig.height: 4
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: Five metrics based on threshold value for the Penalized Logistic Regression model. Vertical lines show maximum j-index and sensitivity between 0.01 and 0.04.
+#| dev: "png"
+#| dpi: 100
+pen_tmetrics_plot
+```
+
+Our two metrics of interest for threshold selection are the j-index and sensitivity which can be seen along with accuracy, precision, and specificity in Figures 8 and 9.  For the logistic regression model, threshold = 0.05 maximizes the j-index and threshold = 0.01 maximizes sensitivity. For the penalized logistic regression model, threshold = 0.04 maximizes the j-index and threshold = 0.01 maximizes sensitivity. As the overall split of blue tarp vs non blue tarp is 3%, we will utilize the .05 threshold for the standard logistic regression and .04 for the penalized logistic regression to maximize j-index. Selecting these thresholds will result in more of a balance between sensitivity and specificity, substantially reducing the number of false positives compared to the .01 threshold.
+
+The confusion matrices below show the breakdown of each model's predictions at the chosen thresholds.
+
+Standard Logistic Regression:
+
+```{r log-conf-mat}
+log_train_cm
+```
+
+Penalized Logistic Regression:
+
+```{r pen-conf-mat}
+pen_train_cm
+```
+
+The confusion matrices show that the penalized model is more sensitive, resulting in fewer false negatives. However, it comes at the cost of almost 200 extra false positives. The j-index, sensitivity, specificity, accuracy and precision are as follows: 0.9634, 0.9871, 0.9763, 0.9868, 0.9992 for the standard model, and 0.9685, 0.9843, 0.9842, 0.0943, 0.9995 for the penalized model. We can see that the penalized model is more balanced across metrics, whereas the standard model prefers sensitivity over specificity. This preference stems from the trend shown in Figures 8 and 9, which show the sensitivity initially falling more steeply for the penalized model, pulling the maximal j-index to the left.
+
+The performance on new data is now investigated. The untuned model produced an ROC AUC of 0.9994 and the tuned model had an AUC of 0.9997, indicating higher performance that reflects the metrics from cross-validation. To investigate further, the confusion matrices on the holdout set are displayed below.
+
+Standard Logistic Regression:
+
+```{r}
+log_test_cm
+```
+
+Penalized Logistic Regression:
+
+```{r}
+pen_test_cm
+```
+
+Both models demonstrate almost perfect sensitivity, with the penalized model correctly identifying every blue tarp pixel. However, the one final pixel identified by the penalized model comes at the expense of over twelve thousand (12,000) misclassified pixels that are not of interest. Both models have extremely high sensitivity compared to the others and a much lower specificity.
+
+
+
+
+
+
+
+## Boosting Model using XGBoost
+
+```{r ensemble - boost}
+# define model spec
+
+ens_spec <- boost_tree(mode="classification",trees = 10, tree_depth = tune(), learn_rate = tune()) %>%
+    set_engine("xgboost")
+
+# define workflow
+ens_wf <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(ens_spec)
+
+# set tuning parameters
+ens_params <- extract_parameter_set_dials(ens_wf)
+
+# tune with grid (or fit resamples)
+ens_tune <- tune_grid(ens_wf,
+                      resamples = resamples,
+                      grid = grid_regular(ens_params, levels = 10),
+                      control = cv_control
+                      )
+
+# get tuning results visualization
+ens_tune_vis <- autoplot(ens_tune, metric = 'roc_auc')
+
+# finalize workflow and fit resamples with best parameters
+ens_best_params <- select_best(ens_tune, metric = 'roc_auc')
+
+ens_final <- ens_wf %>% 
+  finalize_workflow(ens_best_params)
+
+ens_fitcv <- fit_resamples(ens_final,
+                           resamples,
+                           control = cv_control
+                           )
+
+# collect predictions and roc_auc from cross-validated fit
+ens_cv_preds <-  collect_predictions(ens_fitcv)
+ens_cv_metrics <- collect_metrics(ens_fitcv)
+
+# get ROC plot for cross-validation
+ens_cv_roc <- roc_plot(ens_cv_preds, 'Boosting Model')
+
+# get threshold selection info
+ens_thresh_perf <- probably::threshold_perf(ens_cv_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = threshold_metrics)
+
+# get threshold for best sensitivity
+ens_max_sens <- ens_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+ens_max_j <- ens_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+ens_tmetrics_plot <- threshold_metric_plot(ens_thresh_perf, ens_max_sens, ens_max_j)
+
+
+# get best threshold 
+ens_threshold <- as.numeric(ens_max_j[1,1])
+
+# get predictions and metrics based on chosen threshold
+ens_threshold_preds <- threshold_preds(ens_cv_preds, ens_threshold)
+
+ens_threshold_metrics <- threshold_metrics(ens_threshold_preds,
+                                           truth = Class,
+                                           estimate = .pred_class)
+
+# get confusion matrix for chosen threshold
+ens_train_train_cm <- conf_mat(ens_threshold_preds,
+                               truth = Class,
+                               estimate = .pred_class)
+
+## PART II ##
+
+# fit final workflow to training data
+ens_fit <- fit(ens_final,data)
+
+# get predictions and metrics for holdout data
+ens_test_preds <- threshold_preds(augment(ens_fit, new_data = holdout),
+                                  ens_threshold)
+ens_test_roc <- roc_plot(ens_test_preds, "Boost Model")
+
+ens_test_metrics <- test_metrics(ens_test_preds)
+
+ens_test_cm <- conf_mat(ens_test_preds,
+                        truth = Class,
+                        estimate = .pred_class)
+```
+
+## Support Vector Machine Models
+
+```{r}
+## PART I ##
+# define model spec
+svmp_spec <- svm_poly(mode = "classification", engine = "kernlab", cost = tune(),
+                        margin = tune(), degree = tune()) 
+
+# define workflow
+svmp_wf <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(svmp_spec)
+
+# set tuning parameters
+svmp_params <- extract_parameter_set_dials(svmp_wf)
+
+# tune with grid (or fit resamples)
+svmp_tune <- tune_bayes(svmp_wf,
+                      resamples = resamples,
+                      metrics = metric_set(roc_auc),
+                      param_info = svmp_params, iter = 20
+                      )
+
+# get tuning results visualization
+svmp_tune_vis <- autoplot(svmp_tune, metric = 'roc_auc')
+
+# finalize workflow and fit resamples with best parameters
+svmp_best_params <- select_best(svmp_tune, metric = 'roc_auc')
+
+svmp_final <- svmp_wf %>% 
+  finalize_workflow(svmp_best_params)
+
+svmp_fitcv <- fit_resamples(svmp_final,
+                           resamples,
+                           control = cv_control
+                           )
+
+# collect predictions and roc_auc from cross-validated fit
+svmp_cv_preds <-  collect_predictions(svmp_fitcv)
+svmp_cv_metrics <- collect_metrics(svmp_fitcv)
+
+# get ROC plot for cross-validation
+svmp_cv_roc <- roc_plot(svmp_cv_preds, 'svmp')
+
+# get threshold selection info
+svmp_thresh_perf <- probably::threshold_perf(svmp_cv_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = threshold_metrics)
+
+# get threshold for best sensitivity
+svmp_max_sens <- svmp_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+svmp_max_j <- svmp_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+svmp_tmetrics_plot <- threshold_metric_plot(svmp_thresh_perf, svmp_max_sens, svmp_max_j)
+
+# get best threshold
+svmp_threshold <- as.numeric(svmp_max_sens[1,1])
+
+# get predictions and metrics based on chosen threshold
+svmp_threshold_preds <- threshold_preds(svmp_cv_preds, svmp_threshold)
+
+svmp_threshold_metrics <- threshold_metrics(svmp_threshold_preds,
+                                           truth = Class,
+                                           estimate = .pred_class)
+
+# get confusion matrix for chosen threshold
+svmp_train_train_cm <- conf_mat(svmp_threshold_preds,
+                               truth = Class,
+                               estimate = .pred_class)
+
+## PART II ##
+# fit final workflow to training data
+svmp_fit <- fit(svmp_final, data)
+
+# get predictions and metrics for holdout data
+svmp_test_preds <- threshold_preds(augment(svmp_fit, new_data = holdout),
+                                  svmp_threshold)
+svmp_test_roc <- roc_plot(svmp_test_preds, "svmp")
+
+svmp_test_metrics <- test_metrics(svmp_test_preds)
+
+svmp_test_cm <- conf_mat(svmp_test_preds,
+                        truth = Class,
+                        estimate = .pred_class)
+```
+
+```{r}
+## PART I ##
+# define model spec
+svmr_spec <- svm_rbf(mode = "classification", engine = "kernlab", cost = tune(),
+                        margin = tune(), rbf_sigma = tune()) 
+
+# define workflow
+svmr_wf <- workflow() %>% 
+  add_recipe(rec) %>% 
+  add_model(svmr_spec)
+
+# set tuning parameters
+svmr_params <- extract_parameter_set_dials(svmr_wf)
+
+# tune with grid (or fit resamples)
+svmr_tune <- tune_bayes(svmr_wf,
+                      resamples = resamples,
+                      metrics = metric_set(roc_auc),
+                      param_info = svmr_params, iter = 20
+                      )
+
+# get tuning results visualization
+svmr_tune_vis <- autoplot(svmr_tune, metric = 'roc_auc')
+
+# finalize workflow and fit resamples with best parameters
+svmr_best_params <- select_best(svmr_tune, metric = 'roc_auc')
+
+svmr_final <- svmr_wf %>% 
+  finalize_workflow(svmr_best_params)
+
+svmr_fitcv <- fit_resamples(svmr_final,
+                           resamples,
+                           control = cv_control
+                           )
+
+# collect predictions and roc_auc from cross-validated fit
+svmr_cv_preds <-  collect_predictions(svmr_fitcv)
+svmr_cv_metrics <- collect_metrics(svmr_fitcv)
+
+# get ROC plot for cross-validation
+svmr_cv_roc <- roc_plot(svmr_cv_preds, 'svmr')
+
+# get threshold selection info
+svmr_thresh_perf <- probably::threshold_perf(svmr_cv_preds,
+                                            Class,
+                                            .pred_Tarp,
+                                            thresholds = seq(0.01, 0.99, 0.01),
+                                            event_level = 'second',
+                                            metrics = threshold_metrics)
+
+# get threshold for best sensitivity
+svmr_max_sens <- svmr_thresh_perf %>% 
+  filter(.metric == 'sensitivity') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold for best j-index
+svmr_max_j <- svmr_thresh_perf %>% 
+  filter(.metric == 'j_index') %>% 
+  filter(.estimate == max(.estimate))
+
+# get threshold metrics plot
+svmr_tmetrics_plot <- threshold_metric_plot(svmr_thresh_perf, svmr_max_sens, svmr_max_j)
+
+# get best threshold
+svmr_threshold <- as.numeric(svmp_max_sens[1,1])
+
+# get predictions and metrics based on chosen threshold
+svmr_threshold_preds <- threshold_preds(svmr_cv_preds, svmr_threshold)
+
+svmr_threshold_metrics <- threshold_metrics(svmr_threshold_preds,
+                                           truth = Class,
+                                           estimate = .pred_class)
+
+# get confusion matrix for chosen threshold
+svmr_train_train_cm <- conf_mat(svmr_threshold_preds,
+                               truth = Class,
+                               estimate = .pred_class)
+
+## PART II ##
+# fit final workflow to training data
+svmr_fit <- fit(svmr_final, data)
+
+# get predictions and metrics for holdout data
+svmr_test_preds <- threshold_preds(augment(svmr_fit, new_data = holdout),
+                                  svmr_threshold)
+svmr_test_roc <- roc_plot(svmr_test_preds)
+
+svmr_test_metrics <- test_metrics(svmr_test_preds)
+
+svmr_test_cm <- conf_mat(svmr_test_preds,
+                        truth = Class,
+                        estimate = .pred_class)
+```
+
+# Results
+
+
+```{r compare-models}
+# get all cross-validation plots and metrics
+cv_rocs <- ( log_cv_roc + pen_cv_roc  + knn_cv_roc) /
+  ( lda_cv_roc + qda_cv_roc + ens_cv_roc ) /
+  ( svml_cv_roc + svmp_cv_roc + svmr_cv_roc)
+
+compare_cv_metrics <- bind_rows(
+  knn_cv_metrics %>% mutate(model = 'KNN'),
+  lda_cv_metrics %>% mutate(model = 'LDA'),
+  qda_cv_metrics %>% mutate(model = 'QDA'),
+  log_cv_metrics %>% mutate(model = 'logreg'),
+  pen_cv_metrics %>% mutate(model = 'penalized log'),
+  ens_cv_metrics %>% mutate(model = 'ensemble'),
+  svml_cv_metrics %>% mutate(model = 'linear SVM'),
+  svmp_cv_metrics %>% mutate(model = 'polynomial SVM'),
+  svmr_cv_metrics %>% mutate(model = 'radial SVM')
+) %>% 
+  pivot_wider(id_cols = model,
+              names_from = .metric,
+              values_from = mean) %>% 
+  dplyr::select(model, roc_auc)
+
+compare_threshold_metrics <- bind_rows(
+  knn_threshold_metrics %>% mutate(model = 'KNN'),
+  lda_threshold_metrics %>% mutate(model = 'LDA'),
+  qda_threshold_metrics %>% mutate(model = 'QDA'),
+  log_threshold_metrics %>% mutate(model = 'logreg'),
+  pen_threshold_metrics %>% mutate(model = 'penalized log'),
+  ens_threshold_metrics %>% mutate(model = 'ensemble'),
+  svml_threshold_metrics %>% mutate(model = 'linear SVM'),
+  svmp_threshold_metrics %>% mutate(model = 'polynomial SVM'),
+  svmr_threshold_metrics %>% mutate(model = 'radial SVM')
+) %>% 
+  pivot_wider(id_cols = model,
+              names_from = .metric,
+              values_from = .estimate) %>% 
+  mutate(threshold = c(.05, .04, .01, .015, .04)) 
+
+# get all metrics and plots on the holdout dataset
+test_rocs <- ( log_test_roc + pen_test_roc  + knn_test_roc) /
+  ( lda_test_roc + qda_test_roc + ens_test_roc ) /
+  ( svml_test_roc + svmp_test_roc_svmr_test_roc )
+
+compare_test_metrics <- bind_rows(
+  knn_test_metrics %>% mutate(model = 'KNN'),
+  lda_test_metrics %>% mutate(model = 'LDA'),
+  qda_test_metrics %>% mutate(model = 'QDA'),
+  log_test_metrics %>% mutate(model = 'logreg'),
+  pen_test_metrics %>% mutate(model = 'penalized log'),
+  ens_test_metrics %>% mutate(model = 'ensemble'),
+  svml_test_metrics %>% mutate(model = 'linear SVM'),
+  svmp_test_metrics %>% mutate(model = 'polynomial SVM'),
+  svmr_test_metrics %>% mutate(model = 'radial SVM')
+) %>% 
+  pivot_wider(id_cols = model,
+              names_from = .metric,
+              values_from = .estimate)
+
+# create point plot to check for overfitting based on ROC AUC and j-index
+overfit_plot <- bind_rows(
+  compare_cv_metrics %>% 
+    dplyr::select(model, roc_auc) %>% 
+    mutate(data = 'cv'),
+  compare_threshold_metrics %>% 
+    dplyr::select(model, j_index) %>% 
+    mutate(data = 'train'),
+  compare_test_metrics %>% 
+    dplyr::select(model, roc_auc, j_index) %>% 
+    mutate(data = 'test')
+) %>% 
+  pivot_longer(cols = c(roc_auc, j_index)) %>% 
+  mutate(data = factor(data, levels = c('cv', 'train', 'test'))) %>% 
+  ggplot(aes(x = model, y = value, color = data)) +
+  geom_point(size = 2) +
+  facet_wrap(~name, scales = 'free') +
+  labs(x = '', y = 'metric value') +
+  theme(axis.text.x = element_text(angle = 30))
+
+```
+
+
+
+When making a final selection and recommendation of what model to use we first begin by evaluating the ROC AUC of all the models.  Figure 10 shows the ROC curves with Table 2 showing the AUC metric for each model. All of the ROC curves show excellent performance, which is confirmed by the AUC values. Every model has a very high AUC value with the lowest being the LDA at .9888 and the highest being the penalized logistic regression at .9986 (all within 1% of each other).  While the ROC does offer good insight into overall performance it does not provide the whole picture as to final model performance. 
+
+```{r figure-X-ROC-metrics}
+#| fig.align: center
+#| out.width: 70%
+#| fig.cap: ROC plots for all models from top row Logistic, Penalized, KNN  Bottom row LDA, QDA
+#| dev: "png"
+#| dpi: 100
+cv_rocs
+```
+
+```{r table-2-metrics}
+compare_cv_metrics %>% knitr::kable(caption = "Comparison of cross-validated AUC for all models")
+```
+
+Table 3 shows the other metrics for each model at a given threshold (refer to section 3.5 for a discussion of threshold selection). All of the models perform similarly with KNN having the highest j-index and sensitivity. The j-index ranges from 0.8648 for the LDA to 0.9830 for the KNN model.  The sensitivity ranges from 0.9659 for the QDA to 0.9959 for the KNN model. 
+
+```{r table-3-metrics}
+compare_threshold_metrics %>% knitr::kable(caption = "Comparison of Threshold Metrics for all models")
+```
+
+
+
+
+```{r table-4-metrics}
+compare_test_metrics %>% knitr::kable(caption = "Comparison of Metrics on Holdout Dataset for all models")
+```
+
+# Conclusion
+
+
+
+## Conclusion 1
+
+We concluded that the KNN method results in the best algorithm that classifies each pixel as a blue tarp pixel or a non-tarp pixel after the performance metrics for each model were assessed. While it is important to consider all metrics when determining the best model, in this context, it is most important to identify the majority of the tarp pixels and limit the number of false negatives so that we can locate most of the displaced persons. The sensitivity and j-index were the metrics that we mainly focused on with this goal in mind. The KNN model had the highest j-index and the highest sensitivity out of all of the models so that is the one that we believe will be most useful and accurate in identifying blue tarps. This model will play a major role in providing resources to displaced persons and potentially saving human lives.
+
+## Conclusion 2
+
+The goal of this modeling is ultimately to assist in predicting blue tarps to assist humanitarian efforts in the result of a natural disaster.  With that in mind, one area that presented a fascinating part of follow on research was the threshold selection. We ultimately selected the model with an optimal J-index but for any sort of model selection coordinating with a response team is crucial to determining a final threshold. Natural disasters often necessitate extremely fast response time as the first 24 hours are vital in saving lives. With that in mind, we asserted that resources are somewhat limited and balancing false positives and false negatives was more valuable than committing to reducing false negatives. In real world scenarios, developing a model in conjunction with subject matter experts is integral to the process in ensuring that effective prioritization of metrics is done to align with the objective of the analysis.
+
+
+## Conclusion 3
+
+We found that all of the methods performed very well, and there was no one clearly best method. Though the KNN model had the best sensitivity and j-index, which we considered to be the most important metrics, all of the models had very high metrics for not only j-index and sensitivity, but specificity, accuracy and precision as well. For this reason, we are more confident in our results because the models were able to reliably perform well on the data.
+
+
+
+
+
+
+# Appendix
+
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+stopCluster(cl)
+registerDoSEQ()
+```
