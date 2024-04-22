@@ -59,15 +59,15 @@ When viewing the boxplots, there appears to be some overlap of red and green pix
 #| dev: "png"
 #| dpi: 100
 g1_box <- ggplot(data, aes(x=Class, y=Red))+
-  geom_boxplot()+
+  geom_boxplot(fill="#F8766D")+
   labs(title= "Boxplots of Red Pixel Value by Class")
 
 g2_box <- ggplot(data, aes(x=Class, y=Green))+
-  geom_boxplot()+
+  geom_boxplot(fill="#00BA38")+
   labs(title= "Boxplots of Green Pixel Value by Class")
 
 g3_box <- ggplot(data, aes(x=Class, y=Blue))+
-  geom_boxplot()+
+  geom_boxplot(fill="#619CFF")+
   labs(title= "Boxplots of Blue Pixel Value by Class")
 
 g1_box/g2_box/g3_box
@@ -129,22 +129,22 @@ In the box plots below, we can again see the overlap of the red and green pixel 
 bluedata <- data[data$Class == 'Tarp', ]
 otherdata <- data[data$Class == 'Non-Tarp',]
 g1_tarpden <- ggplot(bluedata,aes(x=Red))+
-  geom_boxplot()+
+  geom_boxplot(fill="#F8766D")+
   labs(title= "Box plot of Red Pixel Value of Blue-tarps")
 g1_nontarpden <- ggplot(otherdata,aes(x=Red))+
-  geom_boxplot()+
+  geom_boxplot(fill="#F8766D")+
   labs(title= "Box plot of Red Pixel Value of Non-tarps")
 g2_tarpden <- ggplot(bluedata,aes(x=Green))+
-  geom_boxplot()+
+  geom_boxplot(fill="#00BA38")+
   labs(title= "Box plot of Green Pixel Value of Blue-tarps")
 g2_nontarpden <- ggplot(otherdata,aes(x=Green))+
-  geom_boxplot()+
+  geom_boxplot(fill="#00BA38")+
   labs(title= "Box plot of Green Pixel Value of Non-tarps")
 g3_tarpden <- ggplot(bluedata,aes(x=Blue))+
-  geom_boxplot()+
+  geom_boxplot(fill="#619CFF")+
   labs(title= "Box plot of Blue Pixel Value of Blue-tarps")
 g3_nontarpden <- ggplot(otherdata,aes(x=Blue))+
-  geom_boxplot()+
+  geom_boxplot(fill="#619CFF")+
   labs(title= "Box plot of Blue Pixel Value of Non-tarps")
 
 (g1_tarpden+g1_nontarpden)/(g2_tarpden+g2_nontarpden)/(g3_tarpden+g3_nontarpden)
@@ -228,22 +228,22 @@ In the box plots below of the blue-tarps versus the non-tarps, we can see that t
 bluedata_full <- data_full[data_full$Class == 'Tarp', ]
 otherdata_full<- data_full[data_full$Class == 'Non-Tarp',]
 g1_tarpden_full <- ggplot(bluedata_full,aes(x=Red))+
-  geom_boxplot()+
+  geom_boxplot(fill="#F8766D")+
   labs(title= "Box plot of Red Pixel Value of Blue-tarps")
 g1_nontarpden_full <- ggplot(otherdata_full,aes(x=Red))+
-  geom_boxplot()+
+  geom_boxplot(fill="#F8766D")+
   labs(title= "Box plot of Red Pixel Value of Non-tarps")
 g2_tarpden_full <- ggplot(bluedata_full,aes(x=Green))+
-  geom_boxplot()+
+  geom_boxplot(fill="#00BA38")+
   labs(title= "Box plot of Green Pixel Value of Blue-tarps")
 g2_nontarpden_full <- ggplot(otherdata_full,aes(x=Green))+
-  geom_boxplot()+
+  geom_boxplot(fill="#00BA38")+
   labs(title= "Box plot of Green Pixel Value of Non-tarps")
 g3_tarpden_full <- ggplot(bluedata_full,aes(x=Blue))+
-  geom_boxplot()+
+  geom_boxplot(fill="#619CFF")+
   labs(title= "Box plot of Blue Pixel Value of Blue-tarps")
 g3_nontarpden_full <- ggplot(otherdata_full,aes(x=Blue))+
-  geom_boxplot()+
+  geom_boxplot(fill="#619CFF")+
   labs(title= "Box plot of Blue Pixel Value of Non-tarps")
 
 (g1_tarpden_full+g1_nontarpden_full)/(g2_tarpden_full+g2_nontarpden_full)/(g3_tarpden_full+g3_nontarpden_full)
@@ -449,7 +449,7 @@ knn_test_cm <- conf_mat(knn_test_preds,
 ```
 
 
-We now build a K-nearest neighbors (KNN) model with the number of neighbors, k, tuned to find the best fit. Figure 3 shows the ROC AUC of the model when fitted with different numbers of neighbors. It shows that the AUC of the ROC curve increases with k, maxing before 50, and leveling out at higher tuning values. The highest AUC is **0.9943** and belongs to the model with k = 40 neighbors, so we use this tuning metric moving forward.
+We now build a K-nearest neighbors (KNN) model with the number of neighbors, k, tuned to find the best fit. Figure 8 shows the ROC AUC of the model when fitted with different numbers of neighbors. It shows that the AUC of the ROC curve increases with k, maxing before 50, and leveling out at higher tuning values. The highest AUC is **0.9943** and belongs to the model with k = 40 neighbors, so we use this tuning metric moving forward.
 
 
 
@@ -464,7 +464,7 @@ We now build a K-nearest neighbors (KNN) model with the number of neighbors, k, 
 knn_tune_vis
 ```
 
-With the number of neighbors tuned to k = 40, our model has an ROC AUC of **0.9933**. The ROC curve will be displayed in the next section, when all of the models are compared. The next step is to select the appropriate threshold for our model. Figure 4 shows five different metrics plotted against the threshold value, with thresholds ranging from 0.01 to 0.99. The metrics were calculated using tenfold cross-validation. The vertical lines show that sensitivity is maximized anywhere between 0.01 and 0.09, and j-index is maximized at 0.09. Therefore, we will use threshold = 0.09 in order to maximize both the sensitivity and j-index.
+With the number of neighbors tuned to k = 40, our model has an ROC AUC of **0.9933**. The ROC curve will be displayed in the next section, when all of the models are compared. The next step is to select the appropriate threshold for our model. Figure 9 shows five different metrics plotted against the threshold value, with thresholds ranging from 0.01 to 0.99. The metrics were calculated using tenfold cross-validation. The vertical lines show that sensitivity is maximized anywhere between 0.01 and 0.09, and j-index is maximized at 0.09. Therefore, we will use threshold = 0.09 in order to maximize both the sensitivity and j-index.
 
 ```{r figure-X-knn-threshold-metrics}
 #| fig.width: 5
@@ -540,8 +540,7 @@ lda_tmetrics_plot <- threshold_metric_plot(lda_thresh_perf, lda_max_sens, lda_ma
 lda_threshold <- as.numeric(lda_max_sens[1, 1])
 
 # get predictions and metrics based on chosen threshold
-lda_threshold_preds <- lda_cv_preds %>% 
- mutate(.pred_class = factor(ifelse(.pred_Tarp >= lda_threshold, 'Tarp', 'Non-Tarp')))
+lda_threshold_preds <- threshold_preds(lda_cv_preds, lda_threshold)
 
 lda_threshold_metrics <- threshold_metrics(lda_threshold_preds, truth = Class, estimate = .pred_class)
 
@@ -565,7 +564,7 @@ lda_test_cm <- conf_mat(lda_test_preds,
                         estimate = .pred_class)
 ```
 
-The second model under consideration is linear discriminant analysis (LDA). We found that the LDA model has a ROC AUC of 0.9888, which means that it performs well on the data and classifies blue tarp pixels versus non-tarp pixels much better than a random model. The ROC curve corresponding to the LDA model will be displayed with the other curves in the next section. To choose an appropriate threshold, we reference Figure 5, which displays the threshold plot with the plotted values of the chosen metrics from 0.01 to 0.99.
+The second model under consideration is linear discriminant analysis (LDA). We found that the LDA model has a ROC AUC of 0.9888, which means that it performs well on the data and classifies blue tarp pixels versus non-tarp pixels much better than a random model. The ROC curve corresponding to the LDA model will be displayed with the other curves in the next section. To choose an appropriate threshold, we reference Figure 10, which displays the threshold plot with the plotted values of the chosen metrics from 0.01 to 0.99.
 
 
 ```{r figure-X-lda-threshold-metrics}
@@ -646,11 +645,7 @@ qda_tmetrics_plot <- threshold_metric_plot(qda_thresh_perf, qda_max_sens, qda_ma
 qda_threshold <- as.numeric( (qda_max_sens[1, 1] + qda_max_j[1, 1]) / 2 )
 
 # get predictions and metrics based on chosen threshold
-
-knn_threshold_preds <- threshold_preds(knn_cv_preds, knn_threshold)
-
-qda_threshold_preds <- qda_cv_preds %>% 
- mutate(.pred_class = factor(ifelse(.pred_Tarp >= qda_threshold, 'Tarp', 'Non-Tarp')))
+qda_threshold_preds <- threshold_preds(qda_cv_preds, qda_threshold)
 
 qda_threshold_metrics <- threshold_metrics(qda_threshold_preds, truth = Class, estimate = .pred_class)
 
@@ -675,7 +670,7 @@ qda_test_cm <- conf_mat(qda_test_preds,
 ```
 
 
-The next model to be considered is based on quadratic discriminant analysis (QDA). We found that the model's AUC was 0.9982, which means it performs a lot better than a random model. The next step was selecting the best threshold based on sensitivity and j_index. We found that the maximum sensitivity is at a threshold of 0.01, while the maximum j-index was at 0.02. These metrics at each threshold value are shown within the threshold plot in Figure 6.
+The next model to be considered is based on quadratic discriminant analysis (QDA). We found that the model's AUC was 0.9982, which means it performs a lot better than a random model. The next step was selecting the best threshold based on sensitivity and j_index. We found that the maximum sensitivity is at a threshold of 0.01, while the maximum j-index was at 0.02. These metrics at each threshold value are shown within the threshold plot in Figure 11.
 
 
 ```{r figure-X-qda-threshold-metrics}
@@ -751,8 +746,7 @@ log_tmetrics_plot <- threshold_metric_plot(log_thresh_perf, log_max_sens, log_ma
 log_threshold <- as.numeric(log_max_j[1, 1])
 
 # get predictions and metrics based on chosen threshold
-log_threshold_preds <- log_cv_preds %>% 
-  mutate(.pred_class = factor(ifelse(.pred_Tarp >= log_threshold, 'Tarp', 'Non-Tarp')))
+log_threshold_preds <- threshold_preds(log_cv_preds, log_threshold)
 
 log_threshold_metrics <- threshold_metrics(log_threshold_preds,
                                            truth = Class,
@@ -848,8 +842,7 @@ pen_tmetrics_plot <- threshold_metric_plot(pen_thresh_perf, pen_max_sens, pen_ma
 pen_threshold <- as.numeric(pen_max_j[1, 1])
 
 # get predictions and metrics based on chosen threshold
-pen_threshold_preds <- pen_cv_preds %>% 
-  mutate(.pred_class = factor(ifelse(.pred_Tarp >= pen_threshold, 'Tarp', 'Non-Tarp')))
+pen_threshold_preds <- threshold_preds(pen_cv_preds, pen_threshold)
 
 pen_threshold_metrics <- threshold_metrics(pen_threshold_preds,
                                            truth = Class,
@@ -888,7 +881,7 @@ We investigated two types of logistic regressions: with and without penalty. The
 pen_tune_vis
 ```
 
-For this model the parameters were tuned to mixture = 0.208 and penalty = 1.279e-10. From examining Figure 7, we can see that larger penalty values incur worse performance after about 10e-5. The relatively low mixture value causes the model to be closer to ridge regression, which does not reduce the coefficients of any predictors to zero like lasso. The optimal parameter values reflect how important all predictor variables are for identifying the class of the observation in the model, and that reducing all values proportionally does not benefit the model to a large degree. The ROC AUC value for the tuned model is 0.9986, while the untuned model has a ROC AUC of 0.9985. Because the difference between the models is very small based on penalty and AUC, a practical approach  may choose the standard logistic regression for its simplicity. However, if our purposes do not include interperateability, we may choose the penalized model if it shows even a slight advantage in predictive capability.
+For this model the parameters were tuned to mixture = 0.208 and penalty = 1.279e-10. From examining Figure 12, we can see that larger penalty values incur worse performance after about 10e-5. The relatively low mixture value causes the model to be closer to ridge regression, which does not reduce the coefficients of any predictors to zero like lasso. The optimal parameter values reflect how important all predictor variables are for identifying the class of the observation in the model, and that reducing all values proportionally does not benefit the model to a large degree. The ROC AUC value for the tuned model is 0.9986, while the untuned model has a ROC AUC of 0.9985. Because the difference between the models is very small based on penalty and AUC, a practical approach  may choose the standard logistic regression for its simplicity. However, if our purposes do not include interperateability, we may choose the penalized model if it shows even a slight advantage in predictive capability.
 
 
 
@@ -915,7 +908,7 @@ log_tmetrics_plot
 pen_tmetrics_plot
 ```
 
-Our two metrics of interest for threshold selection are the j-index and sensitivity which can be seen along with accuracy, precision, and specificity in Figures 8 and 9.  For the logistic regression model, threshold = 0.05 maximizes the j-index and threshold = 0.01 maximizes sensitivity. For the penalized logistic regression model, threshold = 0.04 maximizes the j-index and threshold = 0.01 maximizes sensitivity. As the overall split of blue tarp vs non blue tarp is 3%, we will utilize the .05 threshold for the standard logistic regression and .04 for the penalized logistic regression to maximize j-index. Selecting these thresholds will result in more of a balance between sensitivity and specificity, substantially reducing the number of false positives compared to the .01 threshold.
+Our two metrics of interest for threshold selection are the j-index and sensitivity which can be seen along with accuracy, precision, and specificity in Figures 13 and 14.  For the logistic regression model, threshold = 0.05 maximizes the j-index and threshold = 0.01 maximizes sensitivity. For the penalized logistic regression model, threshold = 0.04 maximizes the j-index and threshold = 0.01 maximizes sensitivity. As the overall split of blue tarp vs non blue tarp is 3%, we will utilize the .05 threshold for the standard logistic regression and .04 for the penalized logistic regression to maximize j-index. Selecting these thresholds will result in more of a balance between sensitivity and specificity, substantially reducing the number of false positives compared to the .01 threshold.
 
 The confusion matrices below show the breakdown of each model's predictions at the chosen thresholds.
 
@@ -931,7 +924,7 @@ Penalized Logistic Regression:
 pen_train_cm
 ```
 
-The confusion matrices show that the penalized model is more sensitive, resulting in fewer false negatives. However, it comes at the cost of almost 200 extra false positives. The j-index, sensitivity, specificity, accuracy and precision are as follows: 0.9634, 0.9871, 0.9763, 0.9868, 0.9992 for the standard model, and 0.9685, 0.9843, 0.9842, 0.0943, 0.9995 for the penalized model. We can see that the penalized model is more balanced across metrics, whereas the standard model prefers sensitivity over specificity. This preference stems from the trend shown in Figures 8 and 9, which show the sensitivity initially falling more steeply for the penalized model, pulling the maximal j-index to the left.
+The confusion matrices show that the penalized model is more sensitive, resulting in fewer false negatives. However, it comes at the cost of almost 200 extra false positives. The j-index, sensitivity, specificity, accuracy and precision are as follows: 0.9634, 0.9871, 0.9763, 0.9868, 0.9992 for the standard model, and 0.9685, 0.9843, 0.9842, 0.0943, 0.9995 for the penalized model. We can see that the penalized model is more balanced across metrics, whereas the standard model prefers sensitivity over specificity. This preference stems from the trend shown in Figures 13 and 14, which show the sensitivity initially falling more steeply for the penalized model, pulling the maximal j-index to the left.
 
 The performance on new data is now investigated. The untuned model produced an ROC AUC of 0.9994 and the tuned model had an AUC of 0.9997, indicating higher performance that reflects the metrics from cross-validation. To investigate further, the confusion matrices on the holdout set are displayed below.
 
@@ -958,7 +951,7 @@ Both models demonstrate almost perfect sensitivity, with the penalized model cor
 ## Boosting Model using XGBoost
 
 
-We then chose to build a boosted tree model that creates an ensemble of decision trees based on the results of previous trees. We chose this decision tree model over a Random Tree model since it learns from previous results and can potentially provide us with a more accurate predictive model. We performed tuning on the parameters, tree_depth and learn_rate. Figure __ reveals the AUC for various parameter selections for this model. It reveals that the best learning rate is 0.316 with its best tree depth at 13. We will be keeping this model with these parameters as they give us the highest AUC of 0.9993.
+We then chose to build a boosted tree model that creates an ensemble of decision trees based on the results of previous trees. We chose this decision tree model over a Random Tree model since it learns from previous results and can potentially provide us with a more accurate predictive model. We performed tuning on the parameters, tree_depth and learn_rate. Figure 15 reveals the AUC for various parameter selections for this model. It reveals that the best learning rate is 0.316 with its best tree depth at 13. We will be keeping this model with these parameters as they give us the highest AUC of 0.9993.
 
 
 ```{r ensemble - boost}
@@ -1100,9 +1093,9 @@ ens_test_cm
 
 Support vector machines are models which frequently perform well in a wide variety of applications and are worth considering for this analysis. We analyzed support vector machines with three kernel types: linear, polynomial, and radial. Support vector machines have various tuning parameters to consider depending on the kernel chosen. The first parameter that is tuned for all models is cost, which represents a measure of how much leeway is given for observations to be on the incorrect side of the hyperplane. A larger C value creates a model with higher bias but lower variance and vice versa. Our next parameter is insensitivity margin, this indicates the value of the epsilon in the loss function. This value effectively determines the width of our area around the hyperplane for values that will be penalized. The polynomial kernel has a degree parameter that signifies the order of the kernel function (i.e. 2nd degree vs 3rd degree). The sigma in the radial function determines equates to standard deviation and represents how the decision boundary is drawn. A larger sigma will reduce variance but increase bias and vice versa.
 
-Our Linear SVM performed best with a cost of 31.49 and a margin of .14 This model allows for more flexibility which makes sense as the data set is one that likely does not fit a linear decision area. These parameters allow for the model to attempt to address this draw back and allow for more misclassifications of values. The Polynomial SVM highlights the potential deficiencies with the linear model when examining the parameter tuning. The lowest performing is a 1st degree (linear model) followed by a second and a 3rd degree as the best model. The optimal cost is .1 and the optimal margin is .003. This model has a much smaller cost and narrower margin relative to the linear model which creates a model with relatively higher variance but lower bias. These parameters also reflect how the data is likely to be non-linear in nature. The Radial SVM has a cost of 25.52, a margin of .13 and a Sigma of .006. The cost and margin here are more in line with the linear model though as the figure highlights, these parameters are relatively consistent throughout the range. This allows the radial function to be slightly more biased to the dataset and outperform when it comes to classifications.
+Our Linear SVM performed best with a cost of 31.49 and a margin of .14 This model allows for more flexibility which makes sense as the data set is one that likely does not fit a linear decision area. These parameters allow for the model to attempt to address this draw back and allow for more misclassifications of values. The Polynomial SVM highlights the potential deficiencies with the linear model when examining the parameter tuning. The lowest performing is a 1st degree (linear model) followed by a second and a 3rd degree as the best model. The optimal cost is .1 and the optimal margin is .003. This model has a much smaller cost and narrower margin relative to the linear model which creates a model with relatively higher variance but lower bias. These parameters also reflect how the data is likely to be non-linear in nature. The Radial SVM has a cost of 25.52, a margin of .13 and a Sigma of .006. The cost and margin here are more in line with the linear model though as Figures 17 and 19 highlight, these parameters are relatively consistent throughout the range. This allows the radial function to be slightly more biased to the dataset and outperform when it comes to classifications.
 
-The two threshold metrics to evaluate for these models are the J-Index and sensitivity, which allow us to evaluate 
+The two threshold metrics to evaluate for these models are the J-Index and sensitivity. These measures represent two different approaches to optimize the model with the j-index being a more balance approach that takes into account both sensitivity and specificity. The three thresholds for each model are 0.06, 0.03, and 0.02 for the linear, polynomial, and radial SVM models respectively. For optimization purposes we utilize the j-index as the metric to select the threshold. This allows us to approach the final problem with more flexibility depending on our final objective constraints with false positives and false negatives.
 
 
 ```{r}
@@ -1219,6 +1212,8 @@ svml_tune_vis
 #| dpi: 100
 svml_tmetrics_plot
 ```
+Linear SVM:
+
 ```{r}
 svml_train_train_cm
 ```
@@ -1344,6 +1339,8 @@ svmp_tune_vis
 #| dpi: 100
 svmp_tmetrics_plot
 ```
+Polynomial SVM:
+
 ```{r}
 svmp_train_train_cm
 ```
@@ -1465,6 +1462,9 @@ svmr_tune_vis
 #| dpi: 100
 svmr_tmetrics_plot
 ```
+Radial SVM:
+
+
 ```{r}
 svmr_train_train_cm
 ```
@@ -1506,9 +1506,9 @@ compare_threshold_metrics <- bind_rows(
   log_threshold_metrics %>% mutate(model = 'logreg'),
   pen_threshold_metrics %>% mutate(model = 'penalized log'),
   ens_threshold_metrics %>% mutate(model = 'XGBoost'),
-  svml_threshold_metrics %>% mutate(model = 'Linear SVM'),
-  svmp_threshold_metrics %>% mutate(model = 'Polynomial SVM'),
-  svmr_threshold_metrics %>% mutate(model = 'Radial SVM')
+  svml_threshold_metrics %>% mutate(model = 'linear SVM'),
+  svmp_threshold_metrics %>% mutate(model = 'polynomial SVM'),
+  svmr_threshold_metrics %>% mutate(model = 'radial SVM')
 ) %>% 
   pivot_wider(id_cols = model,
               names_from = .metric,
@@ -1517,7 +1517,9 @@ compare_threshold_metrics <- bind_rows(
                        pen_threshold, ens_threshold, svml_threshold, svmp_threshold,
                        svmr_threshold)) %>% 
   rename(sensitivity = "specificity",
-         specificity = "sensitivity")
+         specificity = "sensitivity") %>% 
+  mutate(precision = c(0.8729, 0.5824, 0.5380, 0.7152, 0.6743, 0.7631, 0.6981, 0.7606, 0.7206))
+  
 
 # get all metrics and plots on the holdout dataset
 test_rocs <- ( log_test_roc + pen_test_roc  + knn_test_roc) /
@@ -1531,15 +1533,16 @@ compare_test_metrics <- bind_rows(
   log_test_metrics %>% mutate(model = 'logreg'),
   pen_test_metrics %>% mutate(model = 'penalized log'),
   ens_test_metrics %>% mutate(model = 'XGBoost'),
-  svml_test_metrics %>% mutate(model = 'Linear SVM'),
-  svmp_test_metrics %>% mutate(model = 'Polynomial SVM'),
-  svmr_test_metrics %>% mutate(model = 'Radial SVM')
+  svml_test_metrics %>% mutate(model = 'linear SVM'),
+  svmp_test_metrics %>% mutate(model = 'polynomial SVM'),
+  svmr_test_metrics %>% mutate(model = 'radial SVM')
 ) %>% 
   pivot_wider(id_cols = model,
               names_from = .metric,
               values_from = .estimate) %>% 
-  rename(sensitivity = "specificity",
-         specificity = "sensitivity")
+  rename(sensitivity = "specificity", # Renaming due to error with how R is calculating levels
+         specificity = "sensitivity") %>% 
+  mutate(precision = c(0.2998, 0.1789, 0.1591, 0.0696, 0.0656, 0.1769,0.0660, 0.1243, 0.0784))
 
 # create point plot to check for overfitting based on ROC AUC and j-index
 overfit_plot <- bind_rows(
@@ -1561,6 +1564,29 @@ overfit_plot <- bind_rows(
   labs(x = '', y = 'metric value') +
   theme(axis.text.x = element_text(angle = 30))
 
+```
+
+```{r}
+# 13452/(13452+31424) #KNN
+# 13860/(13860+63633) #LDA
+# 13586/(13586+71822) #QDA
+# 14479/(14479+193475) #Log
+# 14480/(14480+206144) #Pen
+# 13863/(13863+64505) #Ens
+# 14478/(14478+204855) #SVML
+# 14480/(14480+101993) #SVMP
+# 14480/(14480+170042) #SVMR
+```
+```{r}
+# 1999/(1999+291) #KNN
+# 1791/(1791+1284) #LDA
+# 2017/(2017+1732) #QDA
+# 1974/(1974+786) #Log
+# 1990/(1990+961) #Pen
+# 2017/(2017+626) #Ens
+# 1968/(1968+851) #SVML
+# 2018/(2018+635) #SVMP
+# 2014/(2014+781) #SVMR
 ```
 
 
@@ -1625,9 +1651,6 @@ overfit_plot
 # Conclusion
 
 
-# Conclusion
-
-
 
 ## Conclusion 1
 
@@ -1652,12 +1675,9 @@ The goal of this modeling is ultimately to assist in predicting blue tarps to as
 
 ## Conclusion 4
 
-** discussion or analysis justifying why your findings above are compatible or reconcilable. **
+**discussion or analysis justifying why your findings above are compatible or reconcilable.**
 
 We found our results ot be compatible because the same type of decision boundaries performed similarly across models. The performance of each of the models would be impacted by the shape of the data, and is especially apparent in the comparison of the LDA and QDA models. Even though the performance on the test dataset was comparable between the two, the QDA suffered more loss in j-index and ROC AUC between the training and holdout sets, while the LDA actually improved its performance metrics on the test set. This indicates that the QDA may have slightly overfit the training set in comparison to the LDA, and the true shape of the data may in fact fit a linear decision boundary better. In addition, all of the linear models (linear SVM and tuned/untuned logistic regression) had near-perfect ROC curves. The fact that the KNN and boosted models appeared overfitted and had the lowest AUCs on the holdout dataset indicates further that the assumptions of the other models are in fact true and the decreased bias error of these models does not make up for the variance error introduced by such a flexible method. However, the linear models suffered from lower j-index and accuracy overall on the holdout dataset, and the fact that the radial and polynomial SVMs performed better indicates that the boundary may be more complicated than just linear.
-
-
-
 
 
 
@@ -1667,9 +1687,12 @@ Throughout this process, we discovered that with larger data sets, some trade-of
 
 ## Conclusion 6
 
-** A discussion of the relevance of the metrics calculated in the tables to this application context. **
+**A discussion of the relevance of the metrics calculated in the tables to this application context.**
 
 As was mentioned before in this report, sensitivity has been a very important performance measure in our analysis. It is essential to maximize the sensitivity (treu positive rate) of our predictive models because we want to be sure to find every blue tarp, each of which represents an actual person in need of help. Also discussed was j-index, which combines the measures of sensitivity and specificity to ive a more rounded picture of the model efficacy. Maintaining a high specificity metric will help us not waste resources on pixels identified as blue tarps which are actually areas of no interest. The other metrics displayed are accuracy and precision. The accuracy metric represents all correctly identified pixels. Accuracy also represents a combination of sensitivity and specificity, however it is less useful because a baseline model that predicts only non-tarps will already have a very high accuracy because of the rarity of blue tarps. Precision describes theproportion of predicted blue tarps which actually turned out to be blue tarps, and is another way of looking at how well our model avoids false positives, along with specificity. Again, this metric is a little less relevant to our analysis and, for our purposes, the relevant information is captured in the j-index.
+
+
+
 
 
 # Appendix
