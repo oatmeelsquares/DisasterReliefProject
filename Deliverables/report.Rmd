@@ -1531,6 +1531,32 @@ cv_rocs <- ( log_cv_roc + pen_cv_roc  + knn_cv_roc) /
   ( lda_cv_roc + qda_cv_roc + ens_cv_roc ) /
   ( svml_cv_roc + svmp_cv_roc + svmr_cv_roc)
 
+# precision calculations for threshold metrics
+knnp1 <- 13452/(13452+31424) #KNN
+ldap1 <- 13860/(13860+63633) #LDA
+qdap1 <- 13586/(13586+71822) #QDA
+logp1 <- 14479/(14479+193475) #Log
+penp1 <- 14480/(14480+206144) #Pen
+ensp1 <- 13863/(13863+64505) #Ens
+svmlp1 <-  14478/(14478+204855) #SVML
+svmpp1 <- 14480/(14480+101993) #SVMP
+svmrp1 <- 14480/(14480+170042) #SVMR
+
+# precision calculations for holdout performance
+knnp2 <- 1999/(1999+291) #KNN
+ldap2 <- 1791/(1791+1284) #LDA
+qdap2 <- 2017/(2017+1732) #QDA
+logp2 <- 1974/(1974+786) #Log
+penp2 <- 1990/(1990+961) #Pen
+ensp2 <- 2017/(2017+626) #Ens
+svmlp2 <- 1968/(1968+851) #SVML
+svmpp2 <- 2018/(2018+635) #SVMP
+svmrp2 <- 2014/(2014+781) #SVMR
+
+# We ran into an issue where our metrics were being calculated based on
+# Non-Tarp as our target class. For this reason the sensitivity and specificity metrics were switched, and
+# precision was calculated separately below
+
 compare_cv_metrics <- bind_rows(
   knn_cv_metrics %>% mutate(model = 'KNN'),
   lda_cv_metrics %>% mutate(model = 'LDA'),
@@ -1566,7 +1592,9 @@ compare_threshold_metrics <- bind_rows(
                        svmr_threshold)) %>% 
   rename(sensitivity = "specificity",
          specificity = "sensitivity") %>% 
-  mutate(precision = c(0.8729, 0.5824, 0.5380, 0.7152, 0.6743, 0.7631, 0.6981, 0.7606, 0.7206))
+  mutate(precision = c(knnp1, ldap1, qdap1, logp1, penp1, ensp1, svmlp1, svmpp1, svmrp1))
+
+
   
 
 # get all metrics and plots on the holdout dataset
@@ -1590,7 +1618,7 @@ compare_test_metrics <- bind_rows(
               values_from = .estimate) %>% 
   rename(sensitivity = "specificity", # Renaming due to error with how R is calculating levels
          specificity = "sensitivity") %>% 
-  mutate(precision = c(0.2998, 0.1789, 0.1591, 0.0696, 0.0656, 0.1769,0.0660, 0.1243, 0.0784))
+  mutate(precision = c(knnp2, ldap2, qdap2, logp2, penp2, ensp2, svmlp2, svmpp2, svmrp2))
 
 # create point plot to check for overfitting based on ROC AUC and j-index
 overfit_plot <- bind_rows(
@@ -1613,30 +1641,6 @@ overfit_plot <- bind_rows(
   theme(axis.text.x = element_text(angle = 30))
 
 ```
-
-```{r}
-# 13452/(13452+31424) #KNN
-# 13860/(13860+63633) #LDA
-# 13586/(13586+71822) #QDA
-# 14479/(14479+193475) #Log
-# 14480/(14480+206144) #Pen
-# 13863/(13863+64505) #Ens
-# 14478/(14478+204855) #SVML
-# 14480/(14480+101993) #SVMP
-# 14480/(14480+170042) #SVMR
-```
-```{r}
-# 1999/(1999+291) #KNN
-# 1791/(1791+1284) #LDA
-# 2017/(2017+1732) #QDA
-# 1974/(1974+786) #Log
-# 1990/(1990+961) #Pen
-# 2017/(2017+626) #Ens
-# 1968/(1968+851) #SVML
-# 2018/(2018+635) #SVMP
-# 2014/(2014+781) #SVMR
-```
-
 
 
 When making a final selection and recommendation of what model to use we begin by evaluating the CV ROC of all the models.  Figure 23 shows the ROC curves with Table 3 showing the AUC metric for each model. All of the ROC curves show excellent performance, which is confirmed by the AUC values. Every model has a very high AUC value with the lowest being the LDA at .9888 and the highest being the Polynomial SVM at .9996 (all within about 1% of each other). 
@@ -1673,6 +1677,7 @@ Finally we evaluated the models for over and underfitting. Figure 25 shows the r
 ```{r table-4-metrics}
 compare_test_metrics %>% knitr::kable(caption = "Comparison of Metrics on Holdout Dataset for all models", digits = 4)
 ```
+
 ```{r figure-X-ROC-test-metrics}
 #| fig.align: center
 #| fig.width: 18
@@ -1698,18 +1703,12 @@ overfit_plot
 
 # Conclusion
 
-
-
 ## Conclusion 1
-
-**A recommendation and rationale regarding which algorithm to use for detection of blue tarps.**
 
 We recommend the polynomial support vector machine as the algorithm to use for the detection of blue tarps. We found that this method results in the best algorithm that classifies each pixel as blue tarp pixel or a non-tarp pixel after the performance metrics for each model were assessed on the holdout set. The polynomial support vector machine model had the best performance or close to the best performance for multiple metrics such as AUC, J-index, and sensitivity. While it is important to consider all metrics when determining the best model, in this context, it is most important to identify the majority of the tarp pixels and limit the number of false negatives so that we can locate most of the displaced persons. The sensitivity and j-index were the metrics that we mainly focused on with this goal in mind. The polynomial support vector machine model had the highest J-index and one of the highest sensitivity values when tested using the hold-out set. For these reasons, we believe the polynomial support vector machine model will be most useful and accurate in identifying blue tarps. This model will play a major role in providing resources to displaced persons and potentially saving human lives.
 
 
 ## Conclusion 2
-
-**A discussion of the best performing algorithm(s) in the cross-validation and hold-out data. (they may not be the same)**
 
 The models that performed the best in cross-validation were the polynomial support vector machine model, the radial support vector machine model, and the XGBoost model. The polynomial support vector machine model had the highest AUC, followed by the radial support vector machine model, and then the XGBoost model. Their AUCs were very high, but they were not much higher than the AUCs for the other models with the lowest being an AUC of 0.9888 for LDA. While all models perform well on the data, the best performing models indicate that the data benefits from some non-linear flexibility and separation when trained and tested with the training data. This is demonstrated by the polynomial support vector machine performing better than the linear algorithms, such as the LDA model and the linear support vector model. However, even though these non-linear models perform better, it is important to keep in mind that they don't perform substantially better and the linear models still have a great performance based on AUC. This could potentially mean that while the data requires some separation flexibility, it may not require the a large amount of flexibility that other models may provide, especially when it comes to the hold-out data.
 
@@ -1723,8 +1722,6 @@ The goal of this modeling is ultimately to assist in predicting blue tarps to as
 
 ## Conclusion 4
 
-**discussion or analysis justifying why your findings above are compatible or reconcilable.**
-
 We found our results ot be compatible because the same type of decision boundaries performed similarly across models. The performance of each of the models would be impacted by the shape of the data, and is especially apparent in the comparison of the LDA and QDA models. Even though the performance on the test dataset was comparable between the two, the QDA suffered more loss in j-index and ROC AUC between the training and holdout sets, while the LDA actually improved its performance metrics on the test set. This indicates that the QDA may have slightly overfit the training set in comparison to the LDA, and the true shape of the data may in fact fit a linear decision boundary better. In addition, all of the linear models (linear SVM and tuned/untuned logistic regression) had near-perfect ROC curves. The fact that the KNN and boosted models appeared overfitted and had the lowest AUCs on the holdout dataset indicates further that the assumptions of the other models are in fact true and the decreased bias error of these models does not make up for the variance error introduced by such a flexible method. However, the linear models suffered from lower j-index and accuracy overall on the holdout dataset, and the fact that the radial and polynomial SVMs performed better indicates that the boundary may be more complicated than just linear.
 
 
@@ -1734,8 +1731,6 @@ We found our results ot be compatible because the same type of decision boundari
 Throughout this process, we discovered that with larger data sets, some trade-offs are augmented and have larger impacts on results. The trade-off that had the most impact for us was the trade-off between computational time and parameter tuning. The more parameters we tuned or the more iterations we set for each model, the longer the computational time. In emergency situations like this, timely aid is extremely important, and sometimes predictive accuracy may need to be decreased in order to maximize the use of time and resources. Furthermore, sometimes it may be best to tune only one specific parameter depending on the context of the data. When training these algorithms, we needed to carefully choose our tuned parameters so that the computational time was not substantially long. As much as we wanted to tune many parameters, this was not realistic and we had to choose less tuning parameters in order to use our time efficiently and minimize computational time. We needed to find a balance between the amount of time it would take and the number of false positives and false negatives we would have to deal with. We kept these goals in mind when deciding on which model we would recommend.
 
 ## Conclusion 6
-
-**A discussion of the relevance of the metrics calculated in the tables to this application context.**
 
 As was mentioned before in this report, sensitivity has been a very important performance measure in our analysis. It is essential to maximize the sensitivity (treu positive rate) of our predictive models because we want to be sure to find every blue tarp, each of which represents an actual person in need of help. Also discussed was j-index, which combines the measures of sensitivity and specificity to ive a more rounded picture of the model efficacy. Maintaining a high specificity metric will help us not waste resources on pixels identified as blue tarps which are actually areas of no interest. The other metrics displayed are accuracy and precision. The accuracy metric represents all correctly identified pixels. Accuracy also represents a combination of sensitivity and specificity, however it is less useful because a baseline model that predicts only non-tarps will already have a very high accuracy because of the rarity of blue tarps. Precision describes theproportion of predicted blue tarps which actually turned out to be blue tarps, and is another way of looking at how well our model avoids false positives, along with specificity. Again, this metric is a little less relevant to our analysis and, for our purposes, the relevant information is captured in the j-index.
 
