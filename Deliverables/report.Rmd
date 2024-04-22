@@ -27,11 +27,11 @@ registerDoParallel(cl)
 
 # Introduction
 
-The 2010 earthquake in Haiti was a devastating natural disaster that caused extreme damage and displaced millions of people. After this disaster, the rescue workers needed to deliver food, water, and other resources to the people of Haiti, but it was challenging locating the people in need over this large area. These challenges included roads blocked by rubble and the inability to communicate because of damage to communication infrastructure. The rescue workers needed to find another strategy other than physically looking for them on land to locate and reach these displaced persons quickly and more efficiently. 
+The 2010 earthquake in Haiti was a devastating natural disaster that caused extreme damage and displaced millions of people. After this disaster, the rescue workers needed to deliver food, water, and other resources to the people of Haiti, but it was challenging locating the people in need over this large area. These challenges included roads blocked by rubble and the inability to communicate because of damage to communication infrastructure. The rescue workers needed another strategy other than physically looking for them on land to locate and reach these displaced persons quickly and more efficiently. 
 
-The people of Haiti who were displaced by the earthquake were using blue tarps as temporary shelter. This knowledge was utilized to locate these people after imagery was collected by aircraft flown by a rescue team from the Rochester Institute of Technology. Blue tarps could be searched for within these images by the rescue team who would then go to these coordinates and find them. However, that strategy would have been too slow, and resources would not have been delivered in time. A different strategy that could be used to more efficiently locate people in need of resources was to continue to use these images but instead use data-mining algorithms to search these images. 
+The people of Haiti who were displaced by the earthquake were using blue tarps as temporary shelter. This knowledge was utilized to locate these people after imagery was collected by aircraft flown by a rescue team from the Rochester Institute of Technology. Blue tarps could be searched for within these images by the rescue team who would then go to these coordinates and find them. However, that strategy would have been too slow, and resources would not have been delivered in time. A different strategy that could be used to more efficiently locate people in need of resources was to continue to use these images but instead use data-mining algorithms to search the images. 
 
-This report explores various classification methods that could be useful in locating these blue tarps within the images taken by aircraft. The algorithms tested and explored include those that utilize Logistic Regression with and without penalty, Linear Discriminant Analysis, Quadratic Discriminant Analysis, and K-Nearest Neighbors. We expect at least one of these methods to work more efficiently and more accurately than human efforts as these algorithms can handle more data, perform complex operations, and potentially fit to the patterns of the data to identify the blue tarps. The chosen algorithm will likely to miss fewer blue tarps than a human would. It is critical to identify that algorithm that will perform the best so that aid can be delivered to displaced people in dire circumstances. This is an important data-mining problem that could have a large impact on human life. This report will identify the algorithm that most accurately and most efficiently identifies these blue tarps so that the displaced Haitians can receive desperately needed resources in time. 
+This report explores various classification methods that could be useful in locating these blue tarps within the images taken by aircraft. The algorithms tested and explored include those that utilize K-Nearest Neighbors (KNN), Linear Discriminant Analysis (LDA), Quadratic Discriminant Analysis (QDA), Logistic Regression with and without penalty, a boosted ensemble model using XGBoost, and three different support vector machines (SVMs): one with a linear kernel, one with polynomial and one radial. We expect at least one of these methods to work more efficiently and more accurately than human efforts as these algorithms can handle more data, perform complex operations, and potentially fit to the patterns of the data to identify the blue tarps. The chosen algorithm will likely miss fewer blue tarps than a human would. It is critical to identify the algorithm that will perform the best so that aid can be delivered to displaced people in dire circumstances. This is an important data-mining problem that could have a large impact on human life. This report will identify the algorithm that most accurately and most efficiently identifies these blue tarps so that the displaced Haitians can receive desperately needed resources in time. 
 
 
 # Data
@@ -44,11 +44,11 @@ data <- read_csv(file) #%>%
   #mutate(Class = factor(ifelse(Class == 'Blue Tarp', 'Tarp', 'Non-Tarp')))
 ```
 
-The dataset that will be used consists of class as a response variable and red, blue, green pixels as the predictor variables. There are a total of 63,241 records with no missing values. Pixels can have a range of 0-255 but for this dataset all pixels have a max of 255. Red and green pixels share a minimum value of 48 and blue has a minimum of 44. For Class there are five distinct values: Blue Tarp, Rooftop, Soil, Various Non-Tarp, and Vegetation.
+The datasets used consist of Class as a response variable and Red, Green, and Blue values as the predictor variables. There are a total of 63,241 records in the training dataset and 2,004,177 in the holdout set, with no missing values. RGB values have a range of 0-255. In the training dataset, Red and Green values share a minimum value of 48 and Blue has a minimum of 44. In the holdout set, the Red and Green minimums are 27 and 28, respectively, and the lowest Blue value is 25. For Class there are five distinct values: Blue Tarp, Rooftop, Soil, Various Non-Tarp, and Vegetation.
 
-The box plots below showcase the distribution of the range of pixel values grouped by each of the categories of images observed. For our analysis, one thing we would like to note is the potential groups that could overlap with our goal value of blue tarps. The range of pixel values for each color lie within the following approximate ranges for the blue tarp class: 150-200 for the red pixels, 160-250 for the green pixels, and 175-250 for the blue pixels. The blue pixels have the largest average values, which indicates a higher saturation of the color blue (the color of our tarps). 
+The box plots in Figure 1 showcase the distribution of the range of RGB values grouped by each of the observed categories. We notice that, while the Blue Tarp category overlaps with some other categories on each feature, there is no one category that strongly overlaps with Blue Tarp on all three values. Therefore we have good reason to believe that the Blue Tarp category will be distinguishable from the others in our models. The Blue Tarp class has RGB values that range from 150-200 Red, 160-250 Green, and 175-250 Blue. The highest values are blue, indicating a high saturation of blue in the target class, which is to be expected, since we are looking for blue tarps. 
 
-When viewing the boxplots, there appears to be some overlap of red and green pixel values for the rooftop class and the various non-tarp class with the blue tarp class. The blue pixel values do not overlap as much across classes as the blue tarps have the highest saturation of blue pixels. As we work to identify the best model to identify blue tarps, we will keep in mind that there is some overlap of red and green pixel values of the various non-tarp class and the rooftop class with the blue tarp class. This overlap may potentially make up a portion of the false positives in our final model so we will try to minimize false positives as much as possible while also minimizing false negatives. 
+When viewing the boxplots, there is some overlap of red and green values for the rooftop class and the various non-tarp class with the blue tarp class. The blue values do not overlap as much across classes as the blue tarps have the highest saturation of blue pixels. As we work to identify the best model to identify blue tarps, we will keep in mind that there is some overlap of red and green values of the various non-tarp class and the rooftop class with the blue tarp class. This overlap may potentially make up a portion of the false positives in our final model so we will try to minimize false positives as much as possible while also minimizing false negatives. 
 
 ```{r EDA_Boxplots}
 #| fig.width: 6
@@ -74,8 +74,7 @@ g1_box/g2_box/g3_box
 
 ```
 
-
-The count plot below displays the total counts grouped by class. Blue tarp has the smallest amount of values at 2022. While this is important to note for the threshold selection later on in the model, it is promising that the two largest values by far are vegetation and soil as they are the two who are least likely to represent false positive or false negative values when predicting for tarps. Rooftops and Various Non-Tarps however, do account for 14,647 pixels which do have closer overlaps with the green and blue pixel values for blue tarps. Again, we will need to look out for these potential false positives when assessing our models.
+The count plot in Fgiure 2 displays the total counts grouped by class for the training dataset. Blue Tarp has the smallest amount of values at 2022. This is important to note for the threshold selection later on in the model. It is also promising to note that the two largest values by far are vegetation and soil, as they are the two classes that overlap the least with blue tarps on RGB values, and thus are least likely to represent false positive or false negative values when predicting for tarps. Rooftops and Various Non-Tarps however, do account for 14,647 pixels which have closer overlaps with the green and blue values for blue tarps. These classes are more likely to be mistaken by a model as blue tarps.
 
 ```{r EDA_Countplot_Class_ungrouped }
 #| fig.width: 6
@@ -90,9 +89,9 @@ ggplot(data, aes(Class))+
   labs(title= "Count Plot of Class", x="Count")
 ```
 
-While it is important to assess red, green, and blue pixel values for each class, our main priority is to identify Blue tarps. Since we are targeting a particular class, we are able to transition into a binary problem where we classify the data as follows: Tarps for our target class and Non-Tarp for all other classes.  
+While it is important to assess RGB values for each class in order to understand our date, our main priority is to identify blue tarps. Furthermore, some of the models we are exploring, such as logistic regression, can only effectively distinguish between two classes. Since we are targeting only one class, we now transition into a binary problem where we classify the data between only Tarps and Non-Tarps.   
 
-The bar chart and table 1 below highlight the values of Blue-tarps versus Non-Tarps. In this instance, we note that the proportion of tarp pixels in the total dataset is 3%. When we conduct our threshold selection across all models, this will be important as the models will default to a 50-50 threshold.
+Both the bar chart in Figure 3 and Table 1 highlight the values of Blue-tarps versus Non-Tarps. We note that the proportion of tarp pixels in the total dataset is 3%. When we conduct our threshold selection across all models, this will be important as the models will default to a 50-50 threshold. With such a rare target event, it is likely that we will need to significantly lower the threshold in order to correctly identify as many blue tarps as possible. We also need to keep in mind that an indiscriminant model which assigns every pixel to the Non-Tarp class will have a 97% accuracy, so the requirement for an effective model will be a higher accuracy than might appear very attractive at a glance.
 
 
 ```{r}
@@ -115,7 +114,7 @@ ggplot(data, aes(Class))+
 table(data$Class) %>% knitr::kable(caption = "Count of Class")
 ```
 
-In the box plots below, we can again see the overlap of the red and green pixel values of the non-tarp class with the tarp class. Fortunately, there is not as much overlap of the blue pixel values between the tarp class and the non-tarp class. Our best model may potentially focus the blue pixel predictor more so than the others due to it greater uniqueness.
+In the box plots in Figure 4, we can again see the overlap of the red and green pixel values of the Non-Tarp class with the Tarp class, as well as the relative separation between the blue pixel values of Tarp and Non-Tarp. We expect our models to be able to capitalize on this distinction. We expect any shrinkage models to weight the Blue feature more heavily, because it appears to provide the most information to distinguish blue tarps from other pixels.
 
 
 ```{r EDA_boxplot-binary}
@@ -195,7 +194,7 @@ holdout <- data_full %>% select(c(Class, Red, Green, Blue))
 ```
 
 
-It can be helpful in our EDA to take a look at the holdout set to see how it compares to our training set. Here, we take a look a bar chart of the holdout data below, the difference in the count between the tarps and non-tarps is even more extreme, where the blue-tarps pixels only make up about 0.7% of the data. 
+We now examine the holdout set to see how it compares to our training set. In Figure 5, we see a bar chart of the holdout data. The difference in the count between the tarps and non-tarps is even more extreme than with the training dataset, where the blue-tarps pixels only make up about 0.7% of the data. We expect very high accuracy from our models' performance on the holdout set, because even an indiscriminant model assigning every observation to the Non-Tarp class will have an accuracy of 99.3%.
 
 ```{r EDA_boxplot_binaryfull}
 #| fig.width: 6
@@ -215,7 +214,7 @@ ggplot(data_full, aes(Class), fill = Class)+
 table(data_full$Class) %>% knitr::kable(caption = "Count of Class for holdout set")
 ```
 
-In the box plots below of the blue-tarps versus the non-tarps, we can see that the distributions of the pixel values are slightly different between the training data and the hold out set. In assessing our final models, we need to make sure that we try to avoid models that overfit the training data as they may not perform as well on the test data.
+In the box plots in Figure 6 show the distribution of RGB values for blue-tarps versus non-tarps. We observe that the distributions of the pixel values are different between the training data and the hold out set, with a much peakier distribution for Red and Green values, and most Blue values below 100 for Non-Tarps. The difference in the data has the potential to introduce significant variance error into our models, and we will need to pay attention to possible overfitting in our more flexible models, such as KNN.
 
 ```{r density full data}
 #| fig.width: 20
@@ -247,17 +246,6 @@ g3_nontarpden_full <- ggplot(otherdata_full,aes(x=Blue))+
   labs(title= "Box plot of Blue Pixel Value of Non-tarps")
 
 (g1_tarpden_full+g1_nontarpden_full)/(g2_tarpden_full+g2_nontarpden_full)/(g3_tarpden_full+g3_nontarpden_full)
-```
-
-```{r}
-#| fig.width: 20
-#| fig.height: 8
-#| fig.align: center
-#| out.width: 70%
-#| fig.cap: Box plots of the pixel values broken out by each color and class for the training data.
-#| dev: "png"
-#| dpi: 200
-(g1_tarpden+g1_nontarpden)/(g2_tarpden+g2_nontarpden)/(g3_tarpden+g3_nontarpden)
 ```
 
 
