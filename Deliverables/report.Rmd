@@ -251,15 +251,55 @@ g3_nontarpden_full <- ggplot(otherdata_full,aes(x=Blue))+
 
 # Description of Methodology
 
-This model is created using RStudio with the following packages: tidyverse, tidymodels, ggcorrplot, GGally, patchwork, discrim and doParallel. RStudio is an open-source statistical analysis software that offers a variety of packages to assist in model building and model selection. The first step of this analysis is to change the classifier into our variable of interest. The raw data classifies the pixels into Blue Tarp, Rooftop, Soil, Various Non-Tarp, and Vegetation, however we are only interested in whether the pixel is a Blue Tarp or not a Blue Tarp. We changed the factor outcome variable to have only two levels: Tarp and Non-Tarp. As the goal of this model will be to predict the class of a combination of pixels the following classification models will be explored: Logistic Regression, Penalized Logistic Regression (a logistic regression model with tuning parameters for an elastic net), linear discriminant analysis (LDA), quadtratic discriminant analysis (QDA), and a K-Nearest-Neighbors (KNN) model.
+This investigation was carried out using R, an open-source statistical analysis software that offers a variety of packages to assist in model building and model selection. We used the following packages to execute our analysis: tidyverse, tidymodels, ggcorrplot, GGally, patchwork, discrim, kernlab, and doParallel.
 
-Of these models, the KNN model and the Logistic Regression Model will utilize tuning parameters. Tuning parameters will be selected to maximize ROC AUC. For the KNN model, the selected tuning parameter is the number of neighbors, k. The number of neighbors selected will be the lowest k within one standard deviation of the maximum ROC AUC. For the penalized model, mixture and penalty will be tuned, and the best model will be selected based on ROC AUC.
+The first step of this analysis is to change the class category to reflect our variable of interest. The raw data classifies the pixels into Blue Tarp, Rooftop, Soil, Various Non-Tarp, and Vegetation, however we are only interested in whether the pixel is a Blue Tarp or not a Blue Tarp. We changed the factor outcome variable to have only two levels: Tarp and Non-Tarp. This is a classification problem, and we will explore the following models: KNN, LDA, QDA, Logistic Regression, Penalized Logistic Regression (a logistic regression model with tuning parameters for an elastic net), a boosted ensemble, and one linear, one polynomial, and one radial SVM.
 
-For all models a tenfold cross-validation will be used for model validation. All metrics will be estimated using tenfold cross-validation. With an overall sample size of 63,241, this allows for each fold to have 6,324 records. With this amount of data, a tenfold cross validation is a reliable method to evaluate the performance of the training sets for all models. We set the seed for all random processes to 6030.
+Every model will be tuned except for the LDA and QDA, which have no parameters to tune. Logistic regression will also be investigated with zero penalty, meaning that no parameters will be tuned. Tuning parameters will be selected to maximize ROC AUC. Accuracy will not be used to select best parameters because the accuracy will be calculated at a 0.5 threshold, which will not provide the most accurate results for our purpose. The models will be tuned using a latin hypercube grid to explore the parameter space. The tuning parameters for each model are as follows:
 
-All models will be compared based on ROC AUC. This metric provides a method to evaluate the performance of the True Positive Rate and False Positive Rate across all possible thresholds from 0 to 1. With its efficacy as an overall evaluator of performance, this metric will be used for model selection when comparing all versions of the tenfold validation models. 
+- KNN:
 
-As established during the EDA, the proportion of Blue Tarps to all other classes is approximately 3%. This indicates that a 50% threshold would be a poor choice for the final model. While five metrics will be explored for threshold selection (accuracy, j-index, sensitivity, specificity, and precision) our primary metrics of interest will be sensitivity and j-index. Sensitivity is especially important because we want to minimize false negatives - those could represent individuals that could be missed when response time is extremely important. The j-index is chosen as a metric that balances sensitivity and specificity. This will be valuable in models were responders have limited resources to check potential points of interest. While maximizing based on j-index will result in a higher false negative rate, we will greatly reduce false positives, which will make sure that we can make the most out of the time and resources allocated to the relief effort. In this report, we will assume that we have relatively unlimited resources and therefore pick thresholds based rimarily on sensitivity. J-index will be our secondary metric for selecting threshold. These same metrics will be used and weighted similarly when determining model performance, for similar reasons.
+  - k (number of neighbors)
+
+- Logistic regression:
+
+  - penalty
+
+  - mixture
+
+- boosted ensemble:
+
+  - tree depth
+
+  - learn rate
+
+- linear SVM:
+
+  - cost
+
+  - margin
+
+- polynomial SVM:
+
+  - cost
+
+  - margin
+
+  - degree
+
+- radial SVM:
+
+  - cost
+
+  - margin
+
+  - rbf sigma
+
+All models will be validated using tenfold cross-validation. ROC AUC of the model on the training data subset will be estimated using tenfold cross-validation, and other metrics will be estimated based on the model's predictions at the chosen threshold, since tidyverse packages do not currently support cross-validation at a threshold other than 0.5. With an overall sample size of 63,241, this allows for each fold to have 6,324 records. With this amount of data, a tenfold cross validation is a reliable method to evaluate the performance of the training sets for all models. All metrics on the holdout data will be estimated based on the models' predictions at the chosen threshold. We set the seed for all random processes to 6030.
+
+As established during the EDA, the proportion of Blue Tarps to all other classes is approximately 3%. This indicates that a 50% threshold would be a poor choice for the final model because our issue is concerned with finding as many blue tarps as possible. While five metrics will be explored for threshold selection (accuracy, j-index, sensitivity, specificity, and precision) our primary metrics of interest will be sensitivity and j-index. Sensitivity is especially important because we want to minimize false negatives - those could represent individuals that could be missed when response time is extremely important. The j-index is chosen as a metric that balances sensitivity and specificity. This will be valuable in models were responders have limited resources to check potential points of interest. While maximizing based on j-index may result in a higher false negative rate, we will greatly reduce false positives, which will make sure that we can make the most out of the time and resources allocated to the relief effort.
+
+To select a model and determine model performance, we will also rely heavily on sensitivity and j-index, for similar reasons. We will also look at the area under the ROC curve, as this represents overall model performance, and the threshold can be chosen to optimize j-index or sensitivity.
 
 
 
